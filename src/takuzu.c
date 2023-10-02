@@ -12,8 +12,8 @@ static bool verbose = false;
 
 static void print_help()
 {
-  printf("Usage: takuzu [-a|-o FILE|-v|-V|-h] FILE...\n"
-         "       takuzu -g[SIZE] [-u|-o FILE|-v|-V|-h]\n"
+  printf("Usage: takuzu [-a|-o FILE|-v|-h] FILE...\n"
+         "       takuzu -g[SIZE] [-u|-o FILE|-v|-h]\n"
          "Solve or generate takuzu grids of size:(4, 8, 16, 32, 64)\n\n"
          "-a, --all               search for all possible solutions\n"
          "-g[N], --generate[N]    generate a grid of size NxN (default:8)\n"
