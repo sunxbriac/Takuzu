@@ -6,7 +6,7 @@
 
 #include <err.h>
 #include <getopt.h>
-#include <time.h>
+
 
 static bool verbose = false;
 
