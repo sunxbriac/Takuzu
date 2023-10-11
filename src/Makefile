@@ -1,12 +1,12 @@
 CFLAGS = -std=c11 -Wall -Wextra -pedantic -O2
 CPPFLAGS = -I../include -DEBUG
-LDLFLAGS = -Im
+LDFLAGS = 
 EXE = takuzu
 
 all : takuzu 
 
 takuzu : takuzu.o 
-	$(CC) $(CFLAGS) $(CPPFLAGS) -o  $@ $^ $(LDLFLAGS)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o  $@ $^ $(LDFLAGS)
 
 takuzu.o : takuzu.c ../include/takuzu.h 
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $^
