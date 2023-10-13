@@ -10,7 +10,7 @@
 typedef struct
 {
   int size;
-  char *grid;
+  char **lines;
 } t_grid;
 
 bool grid_check_size(const int size)
@@ -18,45 +18,58 @@ bool grid_check_size(const int size)
   return (size == 4 || size == 8 || size == 16 || size == 32 || size == 64);
 }
 
-void grid_allocate(t_grid *g, int size)
+void grid_allocate(t_grid *grid, int size)
 {
   if (!grid_check_size(size))
-    errx(EXIT_FAILURE, "error : wrong grid size given.");
+    errx(EXIT_FAILURE, "error : wrong grid size given");
 
-  char *grid = NULL;
-  grid = malloc(size * size * sizeof(char));
-  if (grid == NULL)
-    errx(EXIT_FAILURE, "error : grid malloc");
+  char **lines = NULL;
+  lines = malloc(size * sizeof(char *));
+  if (lines == NULL)
+    errx(EXIT_FAILURE, "error : grid lines malloc");
 
   for (int i = 0; i < size; i++)
   {
-    for (int j = 0; j < size; j++)
+    char *col = NULL;
+    col = malloc(size * sizeof(char));
+    if (col == NULL)
     {
-      grid[i + j] = EMPTY_CELL;
+      for (int k = 0; k < i; k++)
+      {
+        free(lines[k]); // free every line initialized before the error
+        free(lines);
+      }
+      errx(EXIT_FAILURE, "error : grid column %d malloc", i);
     }
+
+    for (int j = 0; j < size; j++)
+      col[j] = EMPTY_CELL;
+    lines[i] = col;
   }
 
-  g->size = size;
-  g->grid = grid;
+  grid->size = size;
+  grid->lines = lines;
 }
 
-void grid_free(t_grid *g)
+void grid_free(t_grid *grid)
 {
-  if (g == NULL)
+  if (grid == NULL)
     return;
 
-  free(g->grid);
-  free(g);
+  for (int i = 0; i < grid->size; i++)
+    free(grid->lines[i]);
+  free(grid->lines);
+  free(grid);
 }
 
-void grid_print(t_grid *g, FILE *fd)
+void grid_print(t_grid *grid, FILE *fd)
 {
   fprintf(fd, "\n");
-  for (int i = 0; i < g->size; i++)
+  for (int i = 0; i < grid->size; i++)
   {
-    for (int j = 0; j < g->size; j++)
+    for (int j = 0; j < grid->size; j++)
     {
-      fprintf(fd, "%c", g->grid[i + j]);
+      fprintf(fd, "%c", grid->lines[i][j]);
       fprintf(fd, " ");
     }
     fprintf(fd, "\n");
@@ -306,12 +319,12 @@ int main(int argc, char *argv[])
       errx(EXIT_FAILURE, "error: invalid option '%s'!", argv[optind - 1]);
     }
 
-  t_grid *g;
-  g = malloc(sizeof(t_grid));
-  if (g == NULL)
+  t_grid *grid;
+  grid = malloc(sizeof(t_grid));
+  if (grid == NULL)
     errx(EXIT_FAILURE, "error : t_grid malloc");
 
-  grid_allocate(g, size);
+  grid_allocate(grid, 5);
 
   if (output_file)
   {
@@ -320,12 +333,12 @@ int main(int argc, char *argv[])
       errx(EXIT_FAILURE, "error : can't create file");
   }
 
-  grid_print(g, file);
+  grid_print(grid, file);
 
   if (file != stdout)
   {
     fclose(file);
   }
 
-  grid_free(g);
+  grid_free(grid);
 }

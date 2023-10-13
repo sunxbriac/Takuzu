@@ -5,6 +5,9 @@ EXE = takuzu
 
 all : takuzu 
 
+debug: takuzu.o
+	$(CC) $(CFLAGS) -g3 $(CPPFLAGS)  -o $(EXE) $^ $(LDFLAGS)
+
 takuzu : takuzu.o 
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o  $@ $^ $(LDFLAGS)
 
