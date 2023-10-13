@@ -21,7 +21,10 @@ bool grid_check_size(const int size)
 void grid_allocate(t_grid *grid, int size)
 {
   if (!grid_check_size(size))
+  {
+    free(grid);
     errx(EXIT_FAILURE, "error : wrong grid size given");
+  }
 
   char **lines = NULL;
   lines = malloc(size * sizeof(char *));
@@ -38,6 +41,7 @@ void grid_allocate(t_grid *grid, int size)
       {
         free(lines[k]); // free every line initialized before the error
         free(lines);
+        free(grid);
       }
       errx(EXIT_FAILURE, "error : grid column %d malloc", i);
     }
@@ -88,11 +92,10 @@ bool check_char(const t_grid *g, const char c)
   return (c == '0' || c == '1');
 }
 
-/*
 static t_grid *file_parser(char *filename)
 {
   FILE *parsing_file = NULL;
-  t_grid *g = NULL;
+  t_grid *grid = NULL;
 
   parsing_file = fopen(filename, "r");
   if (parsing_file == NULL)
@@ -123,7 +126,7 @@ static t_grid *file_parser(char *filename)
 
   char line[MAX_GRID_SIZE];
   line[0] = current_char;
-  int line_size = 1;
+  int size = 1;
   current_char = fgetc(parsing_file);
 
   // fill line with first line characters
@@ -131,37 +134,43 @@ static t_grid *file_parser(char *filename)
   {
     if (current_char != ' ' && current_char != '\t')
     {
-      line[line_size] = current_char;
-      line_size++;
+      line[size] = current_char;
+      size++;
     }
     current_char = fgetc(parsing_file);
   }
 
-  if (!grid_check_size(line_size))
+  if (!grid_check_size(size))
   {
     warnx("error: wrong line size in file %s", filename);
     goto error;
   }
 
-  grid_allocate(g, line_size);
-  if (g == NULL)
+  grid = malloc(sizeof(t_grid));
+  if (grid == NULL)
   {
-    warnx("error: grid_alloc");
+    warnx("error : t_grid malloc");
     goto error;
   }
 
+  grid_allocate(grid, size);
+
+  int row = 0;
+  int col;
+
   // initializing first row of grid
-  for (int j = 0; j < g->size; j++)
+  for (col = 0; col < size; col++)
   {
-    if (!check_char(g, line[j]))
+    if (!check_char(grid, line[col]))
     {
-      warnx("error: wrong character '%c' at line 1!", line[j]);
+      warnx("error: wrong character '%c' at line 1!", line[col]);
       goto error;
     }
-    g->grid[j] = line[j];
+    grid->lines[row][col] = line[col];
   }
 
-  int pos = g->size;
+  row++;
+  col = 0;
   current_char = fgetc(parsing_file);
 
   // filling up the rest of the grid
@@ -181,52 +190,73 @@ static t_grid *file_parser(char *filename)
 
     else if (current_char == '\n')
     {
-      if (pos%g->size != 0)
+      if (col != 0)
       {
-        if (pos % g->size != g->size)
+        if (col != size)
         {
-          warnx("error: wrong number of character at line %ld!", pos/g->size + 1);
+          warnx("error: wrong number of character at line %d!", row + 1);
           goto error;
         }
 
-        column = 0;
-        line++;
+        col = 0;
+        row++;
       }
     }
 
     else if (current_char != ' ' && current_char != '\t' &&
              current_char != EOF)
     {
-      if (!check_char(g, current_char))
+      if (!check_char(grid, current_char))
       {
-        warnx("error: wrong character '%c' at line %ld!", current_char, line + 1);
+        warnx("error: wrong character '%c' at line %d!", current_char, row + 1);
         goto error;
       }
 
-      if (line >= grid_size)
+      if (row >= size)
       {
         warnx("error: grid has too many lines");
         goto error;
       }
 
-      grid_set_cell(grid, line, column, current_char);
-      column++;
+      grid->lines[row][col] = current_char;
+      col++;
     }
 
     current_char = fgetc(parsing_file);
   }
 
+  // end of the line, check any error
+  if (col != 0)
+  {
+    if (col != size)
+    {
+      warnx("error: line %d is malformed! (wrong number of cols)",
+            row + 1);
+      goto error;
+    }
+    col = 0;
+    row++;
+  }
+
+  if (row != size)
+  {
+    warnx("error: grid has wrong number of lines");
+    goto error;
+  }
+
+  fclose(parsing_file);
+  return grid;
+
 error:
 
-  if (g != NULL)
-    grid_free(g);
+  if (grid != NULL)
+    grid_free(grid);
 
   if (parsing_file != NULL)
     fclose(parsing_file);
 
   return NULL;
 }
-*/
 
 static bool verbose = false;
 
@@ -257,6 +287,7 @@ int main(int argc, char *argv[])
 
   bool unique = false;
   bool generator = false; // true = generator , false = solver
+  bool mode_all = false;
   FILE *file = stdout;
   char *output_file = NULL;
   int size = DEFAULT_SIZE;
@@ -273,6 +304,7 @@ int main(int argc, char *argv[])
               "it!");
         generator = false;
       }
+      mode_all = true;
       break;
 
     case 'g':
@@ -319,13 +351,6 @@ int main(int argc, char *argv[])
       errx(EXIT_FAILURE, "error: invalid option '%s'!", argv[optind - 1]);
     }
 
-  t_grid *grid;
-  grid = malloc(sizeof(t_grid));
-  if (grid == NULL)
-    errx(EXIT_FAILURE, "error : t_grid malloc");
-
-  grid_allocate(grid, 5);
-
   if (output_file)
   {
     file = fopen(output_file, "w");
@@ -333,12 +358,43 @@ int main(int argc, char *argv[])
       errx(EXIT_FAILURE, "error : can't create file");
   }
 
-  grid_print(grid, file);
-
-  if (file != stdout)
+  if (!generator)
   {
-    fclose(file);
+    if (optind == argc)
+      errx(EXIT_FAILURE, "error : no grid given");
+
+    for (int i = optind; i < argc; i++)
+    {
+      FILE *checkfile = NULL;
+      checkfile = fopen(argv[i], "r");
+      if (checkfile == NULL)
+        errx(EXIT_FAILURE, "error : file not found");
+
+      printf("file %s found and readable\n\n", argv[i]);
+      fclose(checkfile);
+    }
   }
 
-  grid_free(grid);
+  if (!generator)
+  {
+
+    if (optind == argc)
+      errx(EXIT_FAILURE, "error : no grid given");
+
+    for (int i = optind; i < argc; i++)
+    {
+      t_grid *grid = file_parser(argv[i]);
+      if (grid == NULL)
+        errx(EXIT_FAILURE, "error: error with file %s", argv[i]);
+
+      fprintf(file, "# input grid : \n");
+      grid_print(grid, file);
+
+      grid_free(grid);
+    }
+  }
+
+  if (file != stdout)
+    fclose(file);
+  
 }
