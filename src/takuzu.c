@@ -308,6 +308,9 @@ int main(int argc, char *argv[])
       break;
 
     case 'g':
+      if(mode_all || unique)
+        warnx("warning: option 'all' conflicts with generator mode, disabling "
+              "it!");
       generator = true;
       if (optarg != NULL)
       {
