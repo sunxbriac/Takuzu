@@ -313,6 +313,20 @@ int main(int argc, char *argv[])
     }
   }
 
+  if (generator)
+  {
+    t_grid *grid = malloc(sizeof(t_grid));
+    grid_allocate(grid, size);
+
+    grid_print(grid, file);
+    grid_free(grid);
+  }
+
+  printf("zearazer\n\n");
+
+  t_grid *grid2 = malloc(sizeof(t_grid));
+  printf("%d\n", grid2 == NULL);
+  printf("%d\n", grid2->lines == NULL);
   if (file != stdout)
     fclose(file);
 }
