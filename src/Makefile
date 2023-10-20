@@ -8,10 +8,13 @@ all : takuzu
 debug: takuzu.o
 	$(CC) $(CFLAGS) -g3 $(CPPFLAGS) -o $(EXE) $^ $(LDFLAGS)
 
-takuzu : takuzu.o 
+takuzu : takuzu.o grid.o
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o  $@ $^ $(LDFLAGS)
 
 takuzu.o : takuzu.c ../include/takuzu.h 
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $^
+
+grid.o : grid.c ../include/grid.h 
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $^
 
 clean : 
