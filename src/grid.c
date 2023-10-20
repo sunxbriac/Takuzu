@@ -123,3 +123,8 @@ char get_cell(int i, int j, t_grid *grid)
 
   return grid->lines[i][j]; 
 }
+
+void is_consistent(t_grid* grid)
+{
+  
+}

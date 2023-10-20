@@ -39,4 +39,7 @@ void set_cell(int i, int j, t_grid *grid, char v);
 /* returns the value of the cel (i,j) in the grid */
 char get_cell(int i, int j, t_grid *grid);
 
+/* checks if a grid is consistent */
+void grid_is_consistent(t_grid *grid);
+
 #endif /* GRID_H */
