@@ -397,6 +397,16 @@ int main(int argc, char *argv[])
     }
   }
 
+  if (generator)
+  {
+    t_grid *grid = malloc(sizeof(t_grid));
+    grid_allocate(grid, size);
+
+    grid_print(grid, file);
+    grid_free(grid);
+  }
+
   if (file != stdout)
     fclose(file);
+    
 }
