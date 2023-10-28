@@ -8,6 +8,8 @@
 
 #define EMPTY_CELL '_'
 #define ERROR_CHAR 'X'
+#define DEFAULT_SIZE 8
+#define MAX_GRID_SIZE 64
 
 typedef struct
 {

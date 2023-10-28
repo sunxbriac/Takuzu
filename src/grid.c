@@ -22,10 +22,10 @@ bool check_size(const int size)
 void grid_allocate(t_grid *grid, int size)
 {
   if (!check_size(size))
-  {
-    free(grid);
     errx(EXIT_FAILURE, "error : wrong grid size given");
-  }
+
+  if (grid == NULL)
+    errx(EXIT_FAILURE, "error : grid_allocate grid");
 
   char **lines = NULL;
   lines = malloc(size * sizeof(char *));
@@ -64,7 +64,6 @@ void grid_free(t_grid *grid)
   for (int i = 0; i < grid->size; i++)
     free(grid->lines[i]);
   free(grid->lines);
-  free(grid);
 }
 
 void grid_print(t_grid *grid, FILE *fd)
@@ -123,6 +122,15 @@ char get_cell(int i, int j, t_grid *grid)
 
   return grid->lines[i][j]; 
 }
+
+
+bool line_to_bin(t_grid *grid)
+{
+
+}
+
+// construire entier de 64 bits avec position des 1 et un autre avec position de 0 et comparer 
+
 
 void is_consistent(t_grid* grid)
 {
