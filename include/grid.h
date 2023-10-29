@@ -6,6 +6,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <err.h>
+#include <unistd.h>
+#include <inttypes.h>
+
 #define EMPTY_CELL '_'
 #define ERROR_CHAR 'X'
 #define DEFAULT_SIZE 8
@@ -16,6 +20,18 @@ typedef struct
   int size;
   char **lines;
 } t_grid;
+
+typedef struct
+{
+  uint64_t ones;
+  uint64_t zeros;
+} binline;
+
+typedef enum
+{
+  ROW,
+  COL
+} binline_mode;
 
 /* checks if a character is a significant one */
 bool check_char(const t_grid *g, const char c);
@@ -41,7 +57,24 @@ void set_cell(int i, int j, t_grid *grid, char v);
 /* returns the value of the cel (i,j) in the grid */
 char get_cell(int i, int j, t_grid *grid);
 
+/* creates a tuple of 2 binary naturals that we'll use in another function */
+binline line_to_bin(t_grid *grid, int k, binline_mode mode);
+
+/*  checks if there are any lines or columns in the given grid that are
+    identical comparing the binary naturals representing the position of
+    the ones and zeros in the lines/columns. */
+bool no_identical_lines(t_grid *grid);
+
+/* checks if there are any occurence of 3 times the same number in the grid */
+bool no_three_in_a_row(t_grid *grid);
+
 /* checks if a grid is consistent */
-void grid_is_consistent(t_grid *grid);
+bool is_consistent(t_grid *grid);
+
+/* checks if a grid is full */
+bool is_full(t_grid *grid);
+
+/* checks if a grid is full and consistent */
+bool is_valid(t_grid *grid);
 
 #endif /* GRID_H */

@@ -1,13 +1,5 @@
 #include "takuzu.h"
 
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <err.h>
-#include <getopt.h>
-
-#include <grid.h>
 
 static bool fill_grid(t_grid *grid, int size, int *current_ptr,
                       FILE *parsing_file, int *row, int *col)
@@ -316,6 +308,14 @@ int main(int argc, char *argv[])
 
       fprintf(file, "# input grid : \n");
       grid_print(grid, file);
+
+      printf("no lines are identical : %d\n", no_identical_lines(grid));
+      printf("there aren't three in a row : %d\n", no_three_in_a_row(grid));
+      printf("grid is consistent : %d\n", is_consistent(grid));
+      
+      printf("grid is full: %d\n", is_full(grid));
+      printf("grid is valid : %d\n", is_valid(grid));
+
       grid_free(grid);
     }
   }
