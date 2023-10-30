@@ -1,6 +1,5 @@
 #include "takuzu.h"
 
-
 static bool fill_grid(t_grid *grid, int size, int *current_ptr,
                       FILE *parsing_file, int *row, int *col)
 {
@@ -43,7 +42,7 @@ static bool fill_grid(t_grid *grid, int size, int *current_ptr,
         warnx("error: grid has too many lines");
         return false;
       }
-      set_cell(*row,*col,grid,*current_ptr);
+      set_cell(*row, *col, grid, *current_ptr);
       (*col)++;
     }
 
@@ -121,7 +120,7 @@ static t_grid *file_parser(char *filename)
 
   int row = 0;
   int col;
-  
+
   // initializing first row of grid
   for (col = 0; col < size; col++)
   {
@@ -130,9 +129,9 @@ static t_grid *file_parser(char *filename)
       warnx("error: wrong character '%c' at line 1!", line[col]);
       goto error;
     }
-    set_cell(row,col,grid,line[col]);
+    set_cell(row, col, grid, line[col]);
   }
-  
+
   row++;
   col = 0;
   current_char = fgetc(parsing_file);
@@ -304,7 +303,7 @@ int main(int argc, char *argv[])
     {
       t_grid *grid = file_parser(argv[i]);
       if (grid == NULL)
-          errx(EXIT_FAILURE, "error: error with file %s", argv[i]);
+        errx(EXIT_FAILURE, "error: error with file %s", argv[i]);
 
       fprintf(file, "# input grid : \n");
       grid_print(grid, file);
@@ -312,7 +311,7 @@ int main(int argc, char *argv[])
       printf("no lines are identical : %d\n", no_identical_lines(grid));
       printf("there aren't three in a row : %d\n", no_three_in_a_row(grid));
       printf("grid is consistent : %d\n", is_consistent(grid));
-      
+
       printf("grid is full: %d\n", is_full(grid));
       printf("grid is valid : %d\n", is_valid(grid));
 
@@ -331,5 +330,4 @@ int main(int argc, char *argv[])
 
   if (file != stdout)
     fclose(file);
-    
 }

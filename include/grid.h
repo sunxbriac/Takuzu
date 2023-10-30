@@ -12,6 +12,8 @@
 
 #define EMPTY_CELL '_'
 #define ERROR_CHAR 'X'
+#define ONE '1'
+#define ZERO '0'
 #define DEFAULT_SIZE 8
 #define MAX_GRID_SIZE 64
 

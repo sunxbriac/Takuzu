@@ -9,7 +9,7 @@ bool check_char(const t_grid *g, const char c)
   if (c == EMPTY_CELL)
     return true;
 
-  return (c == '0' || c == '1');
+  return (c == ZERO || c == ONE);
 }
 
 bool check_size(const int size)
@@ -129,9 +129,9 @@ binline line_to_bin(t_grid *grid, int k, binline_mode mode)
   {
     for (int i = 0; i < grid->size; i++)
     {
-      if (grid->lines[i][k] == '1')
+      if (grid->lines[i][k] == ONE)
         res.ones |= ((uint64_t)0x1 << (i));
-      if (grid->lines[i][k] == '0')
+      if (grid->lines[i][k] == ZERO)
         res.zeros |= ((uint64_t)0x1 << (i));
     }
   }
@@ -140,9 +140,9 @@ binline line_to_bin(t_grid *grid, int k, binline_mode mode)
   {
     for (int i = 0; i < grid->size; i++)
     {
-      if (grid->lines[k][i] == '1')
+      if (grid->lines[k][i] == ONE)
         res.ones |= ((uint64_t)0x1 << (i));
-      if (grid->lines[k][i] == '0')
+      if (grid->lines[k][i] == ZERO)
         res.zeros |= ((uint64_t)0x1 << (i));
     }
   }
@@ -172,7 +172,7 @@ bool no_identical_lines(t_grid *grid)
 
   for (int k = 0; k < grid->size; k++)
   {
-    if ((gridrows[k].ones ^ gridrows[k].zeros) == full_line) 
+    if ((gridrows[k].ones ^ gridrows[k].zeros) == full_line)
     {
       for (int l = k + 1; l < grid->size; l++)
       {
@@ -206,21 +206,20 @@ bool no_three_in_a_row(t_grid *grid)
   {
     for (int j = 0; j < (grid->size - 2); j++)
     {
-      if (grid->lines[i][j] == '1')
-        if ((grid->lines[i][j + 1] == '1') && (grid->lines[i][j + 2] == '1'))
-          return false;
+      if ((grid->lines[i][j] == ONE) && (grid->lines[i][j + 1] == ONE) &&
+          (grid->lines[i][j + 2] == ONE))
+        return false;
 
-      if (grid->lines[i][j] == '0')
-        if ((grid->lines[i][j + 1] == '0') && (grid->lines[i][j + 2] == '0'))
-          return false;
+      if ((grid->lines[i][j] == ZERO) && (grid->lines[i][j + 1] == ZERO) &&
+          (grid->lines[i][j + 2] == ZERO))
+        return false;
 
-      if (grid->lines[j][i] == '1')
-        if ((grid->lines[j + 1][i] == '1') && (grid->lines[j + 2][i] == '1'))
-          return false;
+      if ((grid->lines[j][i] == ONE) && (grid->lines[j + 1][i] == ONE) &&
+          (grid->lines[j + 2][i] == ONE))
+        return false;
 
-      if (grid->lines[j][i] == '0')
-        if ((grid->lines[j + 1][i] == '0') && (grid->lines[j + 2][i] == '0'))
-          return false;
+      if ((grid->lines[j][i] == ZERO) && (grid->lines[j + 1][i] == ZERO) && (grid->lines[j + 2][i] == ZERO))
+        return false;
     }
   }
 
@@ -244,5 +243,46 @@ bool is_full(t_grid *grid)
 bool is_valid(t_grid *grid)
 {
   return is_full(grid) && is_consistent(grid);
+}
+
+bool consecutive_cells(t_grid *grid)
+{
+  bool change = false;
+
+  for (int i = 0; i < grid->size; i++)
+  {
+    for (int j = 0; j < (grid->size - 2); j++)
+    {
+      if ((grid->lines[i][j] == ONE) && (grid->lines[i][j + 1] == ONE) &&
+          (grid->lines[i][j + 2] == EMPTY_CELL))
+      {
+        set_cell(i, j + 2, grid, ZERO);
+        change = true;
+      }
+
+      if ((grid->lines[i][j] == ZERO) && (grid->lines[i][j + 1] == ZERO) &&
+          (grid->lines[i][j + 2] == EMPTY_CELL))
+      {
+        set_cell(i, j + 2, grid, ONE);
+        change = true;
+      }
+
+      if ((grid->lines[j][i] == ONE) && (grid->lines[j + 1][i] == ONE) &&
+          (grid->lines[j + 2][i] == EMPTY_CELL))
+      {
+        set_cell(j + 2, i, grid, ZERO);
+        change = true;
+      }
+
+      if ((grid->lines[j][i] == ZERO) && (grid->lines[j + 1][i] == ZERO) &&
+          (grid->lines[j + 2][i] == EMPTY_CELL))
+      {
+        set_cell(j + 2, i, grid, ONE);
+        change = true;
+      }
+    }
+  }
+
+  return change;
 }
 
