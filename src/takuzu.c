@@ -121,7 +121,7 @@ static t_grid *file_parser(char *filename)
 
   int row = 0;
   int col;
-
+  
   // initializing first row of grid
   for (col = 0; col < size; col++)
   {
@@ -132,7 +132,7 @@ static t_grid *file_parser(char *filename)
     }
     set_cell(row,col,grid,line[col]);
   }
-
+  
   row++;
   col = 0;
   current_char = fgetc(parsing_file);
@@ -304,7 +304,7 @@ int main(int argc, char *argv[])
     {
       t_grid *grid = file_parser(argv[i]);
       if (grid == NULL)
-        errx(EXIT_FAILURE, "error: error with file %s", argv[i]);
+          errx(EXIT_FAILURE, "error: error with file %s", argv[i]);
 
       fprintf(file, "# input grid : \n");
       grid_print(grid, file);
@@ -331,4 +331,5 @@ int main(int argc, char *argv[])
 
   if (file != stdout)
     fclose(file);
+    
 }
