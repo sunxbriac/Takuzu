@@ -1,0 +1,8 @@
+# Incorrect 8x8 grid (an example of the many sources of incorrectness)
+0 1 _ _ 1 _ _ _
+0 _ 1 _ _ _ _ _
+_ _ _ _ 0 _ _ _
+_ _ _ 1 _ _ _ _
+_ O _ _ 1 _ _ _
+_ _ 1 _ _ _ _ _
+_ 1 _ _ _ _ 1 _

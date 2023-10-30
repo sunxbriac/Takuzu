@@ -1,99 +1,8 @@
 #include "takuzu.h"
 
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <err.h>
-#include <getopt.h>
-
-typedef struct
-{
-  int size;
-  char **lines;
-} t_grid;
-
-bool grid_check_size(const int size)
-{
-  return (size == 4 || size == 8 || size == 16 || size == 32 || size == 64);
-}
-
-void grid_allocate(t_grid *grid, int size)
-{
-  if (!grid_check_size(size))
-    errx(EXIT_FAILURE, "error : wrong grid size given");
-
-  if (grid == NULL)
-    errx(EXIT_FAILURE, "error : grid_allocate grid"); 
-  
-  
-  char **lines = NULL;
-  lines = malloc(size * sizeof(char *));
-  if (lines == NULL)
-    errx(EXIT_FAILURE, "error : grid lines malloc");
-
-  for (int i = 0; i < size; i++)
-  {
-    char *col = NULL;
-    col = malloc(size * sizeof(char));
-    if (col == NULL)
-    {
-      for (int k = 0; k < i; k++)
-      {
-        free(lines[k]); // free every line initialized before the error
-        free(lines);
-        free(grid);
-      }
-      errx(EXIT_FAILURE, "error : grid column %d malloc", i);
-    }
-
-    for (int j = 0; j < size; j++)
-      col[j] = EMPTY_CELL;
-    lines[i] = col;
-  }
-  
-  grid->size = size;
-  grid->lines = lines;
-}
-
-void grid_free(t_grid *grid)
-{
-  if (grid == NULL)
-    return;
-
-  for (int i = 0; i < grid->size; i++)
-    free(grid->lines[i]);
-  free(grid->lines);
-}
-
-void grid_print(t_grid *grid, FILE *fd)
-{
-  fprintf(fd, "\n");
-  for (int i = 0; i < grid->size; i++)
-  {
-    for (int j = 0; j < grid->size; j++)
-    {
-      fprintf(fd, "%c", grid->lines[i][j]);
-      fprintf(fd, " ");
-    }
-    fprintf(fd, "\n");
-  }
-
-  fprintf(fd, "\n");
-}
-
-bool check_char(const t_grid *g, const char c)
-{
-  if (g == NULL)
-    return false;
-  if (c == EMPTY_CELL)
-    return true;
-
-  return (c == '0' || c == '1');
-}
 
 static bool fill_grid(t_grid *grid, int size, int *current_ptr,
-                          FILE *parsing_file, int *row, int *col)
+                      FILE *parsing_file, int *row, int *col)
 {
   while (*current_ptr != EOF)
   {
@@ -134,8 +43,7 @@ static bool fill_grid(t_grid *grid, int size, int *current_ptr,
         warnx("error: grid has too many lines");
         return false;
       }
-
-      grid->lines[*row][*col] = *current_ptr;
+      set_cell(*row,*col,grid,*current_ptr);
       (*col)++;
     }
 
@@ -144,16 +52,16 @@ static bool fill_grid(t_grid *grid, int size, int *current_ptr,
   return true;
 }
 
-/*  opens the file given and detects when is the grid starting : ignore comments 
-      and empty lines 
-    fills the first grid with the first line of the file and checks if the size 
-    of the line is a correct one, if yes fills the rest of the grid and 
+/*  opens the file given and detects when is the grid starting : ignore comments
+      and empty lines
+    fills the first grid with the first line of the file and checks if the size
+    of the line is a correct one, if yes fills the rest of the grid and
     checks subsiding errors : wrong character, wrong number of characters.. */
 static t_grid *file_parser(char *filename)
 {
   FILE *parsing_file = NULL;
   t_grid g;
-  
+
   parsing_file = fopen(filename, "r");
   if (parsing_file == NULL)
   {
@@ -191,7 +99,7 @@ static t_grid *file_parser(char *filename)
   {
     if (current_char != ' ' && current_char != '\t')
     {
-      if(size == 64)
+      if (size == 64)
       {
         warnx("error: first line size in file %s is too long", filename);
         goto error;
@@ -202,12 +110,12 @@ static t_grid *file_parser(char *filename)
     current_char = fgetc(parsing_file);
   }
 
-  if (!grid_check_size(size))
+  if (!check_size(size))
   {
     warnx("error: wrong line size in file %s", filename);
     goto error;
   }
-  
+
   grid_allocate(&g, size);
   t_grid *grid = &g;
 
@@ -222,14 +130,14 @@ static t_grid *file_parser(char *filename)
       warnx("error: wrong character '%c' at line 1!", line[col]);
       goto error;
     }
-    grid->lines[row][col] = line[col];
+    set_cell(row,col,grid,line[col]);
   }
   
   row++;
   col = 0;
   current_char = fgetc(parsing_file);
 
-  if(!fill_grid(grid,size,&current_char,parsing_file,&row,&col))
+  if (!fill_grid(grid, size, &current_char, parsing_file, &row, &col))
     goto error;
 
   // end of the file, check any error
@@ -316,14 +224,14 @@ int main(int argc, char *argv[])
       break;
 
     case 'g':
-      if(mode_all || unique)
+      if (mode_all || unique)
         warnx("warning: option 'all' conflicts with generator mode, disabling "
               "it!");
       generator = true;
       if (optarg != NULL)
       {
         int grid_size = strtol(optarg, NULL, 10);
-        if (!grid_check_size(grid_size))
+        if (!check_size(grid_size))
           errx(EXIT_FAILURE, "error: you must enter size in (4, 8, 16, 32,"
                              " 64)");
         size = grid_size;
@@ -400,6 +308,14 @@ int main(int argc, char *argv[])
 
       fprintf(file, "# input grid : \n");
       grid_print(grid, file);
+
+      printf("no lines are identical : %d\n", no_identical_lines(grid));
+      printf("there aren't three in a row : %d\n", no_three_in_a_row(grid));
+      printf("grid is consistent : %d\n", is_consistent(grid));
+      
+      printf("grid is full: %d\n", is_full(grid));
+      printf("grid is valid : %d\n", is_valid(grid));
+
       grid_free(grid);
     }
   }
