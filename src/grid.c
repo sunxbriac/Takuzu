@@ -121,7 +121,7 @@ char get_cell(int i, int j, t_grid *grid)
   return grid->lines[i][j];
 }
 
-binline line_to_bin(t_grid *grid, int k, binline_mode mode)
+binline line_to_bin(t_grid *grid, int k, axis_mode mode)
 {
   binline res = {.ones = (uint64_t)0, .zeros = (uint64_t)0};
 
@@ -245,7 +245,7 @@ bool is_valid(t_grid *grid)
   return is_full(grid) && is_consistent(grid);
 }
 
-bool consecutive_cells(t_grid *grid)
+bool consecutive_cells_heuristic(t_grid *grid)
 {
   bool change = false;
 
@@ -286,3 +286,88 @@ bool consecutive_cells(t_grid *grid)
   return change;
 }
 
+// lots of entries in order to have good-looking heuristic & performance
+bool half_line_filled(t_grid *grid, int i, axis_mode mode, int zeroscount,
+                      int onescount, int halfsize)
+{
+  bool change = false;
+  zeroscount = onescount = 0;
+
+  if (mode) // we're looking at columns
+  {
+    for (int j = 0; j < grid->size; j++)
+    {
+      if (grid->lines[j][i] == ONE)
+        onescount++;
+      if (grid->lines[j][i] == ZERO)
+        zeroscount++;
+    }
+    if (onescount == halfsize) // if we have half ones
+    {
+      if (zeroscount != halfsize) // and we have less than half zeroes
+      {
+        for (int j = 0; j < grid->size; j++)
+          if (grid->lines[j][i] != ONE)
+            set_cell(j, i, grid, ZERO);
+        change = true;
+      }
+    }
+    else if (zeroscount == halfsize) // less than half ones, only check zeros
+    {
+      for (int j = 0; j < grid->size; j++)
+        if (grid->lines[j][i] != ZERO)
+          set_cell(j, i, grid, ONE);
+      change = true;
+    }
+  }
+
+  else // we're looking at rows (same process but i <-> j, code looks heavier
+  {    //                        but its more cost efficient)
+    for (int j = 0; j < grid->size; j++)
+    {
+      if (grid->lines[i][j] == ONE)
+        onescount++;
+      if (grid->lines[i][j] == ZERO)
+        zeroscount++;
+    }
+    if (onescount == halfsize)
+    {
+      if (zeroscount != halfsize)
+      {
+        for (int j = 0; j < grid->size; j++)
+          if (grid->lines[i][j] != ONE)
+            set_cell(i, j, grid, ZERO);
+        change = true;
+      }
+    }
+    else if (zeroscount == halfsize)
+    {
+      for (int j = 0; j < grid->size; j++)
+        if (grid->lines[i][j] != ZERO)
+          set_cell(i, j, grid, ONE);
+      change = true;
+    }
+  }
+
+  return change;
+}
+
+bool half_line_heuristic(t_grid *grid)
+{
+  bool change = false;
+  int zeroscount, onescount;
+  int halfsize = grid->size / 2;
+
+  for (int i = 0; i < grid->size; i++)
+  {
+    change = change ||
+             half_line_filled(grid, i, ROW, zeroscount, onescount, halfsize) ||
+             half_line_filled(grid, i, COL, zeroscount, onescount, halfsize);
+  }
+  return change;
+}
+
+// utiliser get_cell a chaque fois même dans le module grid ?
+// dans ce cas il serait bcp plus efficace que get_cell errx plutôt que
+// de retourner un mauvais caractère car ça nous oblige a tester le
+// retour de get_cell a chaque fois qu'on l'appelle.
