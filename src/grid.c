@@ -150,6 +150,25 @@ binline line_to_bin(t_grid *grid, int k, binline_mode mode)
   return res;
 }
 
+int gridline_count(const uint64_t gridline)
+{
+  uint64_t mask5 = (0xFFFFFFFFFFFFFFFF >> 32);
+  uint64_t mask4 = mask5 ^ (mask5 << 16);
+  uint64_t mask3 = mask4 ^ (mask4 << 8);
+  uint64_t mask2 = mask3 ^ (mask3 << 4);
+  uint64_t mask1 = mask2 ^ (mask2 << 2);
+  uint64_t mask0 = mask1 ^ (mask1 << 1);
+
+  uint64_t size = ((gridline >> 1) & mask0) + (gridline & mask0);
+  size = ((size >> 2) & mask1) + (size & mask1);
+  size = ((size >> 4) & mask2) + (size & mask2);
+  size = ((size >> 8) & mask3) + (size & mask3);
+  size = ((size >> 16) & mask4) + (size & mask4);
+  size = ((size >> 32) & mask5) + (size & mask5);
+
+  return (int)size;
+}
+
 bool no_identical_lines(t_grid *grid)
 {
   binline *gridrows;
@@ -167,12 +186,19 @@ bool no_identical_lines(t_grid *grid)
   for (int k = 0; k < grid->size; k++)
   {
     gridrows[k] = line_to_bin(grid, k, ROW);
+    if ((gridline_count(gridrows[k].ones) > grid->size / 2) |
+        (gridline_count(gridrows[k].zeros) > grid->size / 2))
+      return false;
+    
     gridcols[k] = line_to_bin(grid, k, COL);
+    if ((gridline_count(gridcols[k].ones) > grid->size / 2) |
+        (gridline_count(gridcols[k].zeros) > grid->size / 2))
+      return false;
   }
 
   for (int k = 0; k < grid->size; k++)
   {
-    if ((gridrows[k].ones ^ gridrows[k].zeros) == full_line) 
+    if ((gridrows[k].ones ^ gridrows[k].zeros) == full_line)
     {
       for (int l = k + 1; l < grid->size; l++)
       {
@@ -245,4 +271,3 @@ bool is_valid(t_grid *grid)
 {
   return is_full(grid) && is_consistent(grid);
 }
-
