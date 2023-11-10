@@ -33,7 +33,8 @@ typedef enum
 {
   ROW,
   COL
-} binline_mode;
+} axis_mode;
+
 
 /* checks if a character is a significant one */
 bool check_char(const t_grid *g, const char c);
@@ -60,7 +61,10 @@ void set_cell(int i, int j, t_grid *grid, char v);
 char get_cell(int i, int j, t_grid *grid);
 
 /* creates a tuple of 2 binary naturals that we'll use in another function */
-binline line_to_bin(t_grid *grid, int k, binline_mode mode);
+binline line_to_bin(t_grid *grid, int k, axis_mode mode);
+
+/* counts the bits to 1 in a binary int */
+int gridline_count(uint64_t gridline);
 
 /*  checks if there are any lines or columns in the given grid that are
     identical comparing the binary naturals representing the position of
