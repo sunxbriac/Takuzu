@@ -2,6 +2,16 @@
 
 #include <inttypes.h>
 
+#define too_many(c, axis) (gridline_count(axis[k].c) > grid->size / 2)
+#define line_k_is_full(axis) ((axis[k].ones ^ axis[k].zeros) == full_line)
+#define identical(axis, k, l) (((axis[k].ones ^ axis[l].ones) == 0) && \
+                               ((axis[k].zeros ^ axis[l].zeros) == 0))
+
+#define three_in_a_row_on_a_line(c) ((grid->lines[i][j] == c) && \
+                                     (grid->lines[i][j + 1] == c) && (grid->lines[i][j + 2] == c))
+#define three_in_a_row_on_a_column(c) ((grid->lines[j][i] == c) && \
+                                       (grid->lines[j + 1][i] == c) && (grid->lines[j + 2][i] == c))
+
 bool check_char(const t_grid *g, const char c)
 {
   if (g == NULL)
@@ -95,7 +105,7 @@ void grid_copy(t_grid *grid, t_grid *grid_copy)
 
 void set_cell(int i, int j, t_grid *grid, char v)
 {
-  if (!grid || i >= grid->size || j >= grid->size)
+  if (!grid || i >= grid->size || j >= grid->size || j < 0 || i < 0)
   {
     warnx("error : set_cell wrong indexes / NULL grid");
     return;
@@ -111,13 +121,6 @@ char get_cell(int i, int j, t_grid *grid)
     warnx("error : get_cell wrong indexes / NULL grid");
     return ERROR_CHAR;
   }
-
-  if (!check_char(grid, grid->lines[i][j]))
-  {
-    warnx("error : get_cell non-relevant character");
-    return ERROR_CHAR;
-  }
-
   return grid->lines[i][j];
 }
 
@@ -129,9 +132,9 @@ binline line_to_bin(t_grid *grid, int k, axis_mode mode)
   {
     for (int i = 0; i < grid->size; i++)
     {
-      if (grid->lines[i][k] == '1')
+      if (grid->lines[i][k] == ONE)
         res.ones |= ((uint64_t)0x1 << (i));
-      if (grid->lines[i][k] == '0')
+      if (grid->lines[i][k] == ZERO)
         res.zeros |= ((uint64_t)0x1 << (i));
     }
   }
@@ -140,9 +143,9 @@ binline line_to_bin(t_grid *grid, int k, axis_mode mode)
   {
     for (int i = 0; i < grid->size; i++)
     {
-      if (grid->lines[k][i] == '1')
+      if (grid->lines[k][i] == ONE)
         res.ones |= ((uint64_t)0x1 << (i));
-      if (grid->lines[k][i] == '0')
+      if (grid->lines[k][i] == ZERO)
         res.zeros |= ((uint64_t)0x1 << (i));
     }
   }
@@ -150,23 +153,15 @@ binline line_to_bin(t_grid *grid, int k, axis_mode mode)
   return res;
 }
 
-int gridline_count(const uint64_t gridline)
+int gridline_count(uint64_t gridline)
 {
-  uint64_t mask5 = (0xFFFFFFFFFFFFFFFF >> 32);
-  uint64_t mask4 = mask5 ^ (mask5 << 16);
-  uint64_t mask3 = mask4 ^ (mask4 << 8);
-  uint64_t mask2 = mask3 ^ (mask3 << 4);
-  uint64_t mask1 = mask2 ^ (mask2 << 2);
-  uint64_t mask0 = mask1 ^ (mask1 << 1);
-
-  uint64_t size = ((gridline >> 1) & mask0) + (gridline & mask0);
-  size = ((size >> 2) & mask1) + (size & mask1);
-  size = ((size >> 4) & mask2) + (size & mask2);
-  size = ((size >> 8) & mask3) + (size & mask3);
-  size = ((size >> 16) & mask4) + (size & mask4);
-  size = ((size >> 32) & mask5) + (size & mask5);
-
-  return (int)size;
+  int count = 0;
+  while (gridline)
+  {
+    gridline &= (gridline - 1);
+    count++;
+  }
+  return count;
 }
 
 bool no_identical_lines(t_grid *grid)
@@ -181,30 +176,43 @@ bool no_identical_lines(t_grid *grid)
 
   gridcols = malloc(grid->size * sizeof(binline));
   if (gridcols == NULL)
-    errx(EXIT_FAILURE, "error : malloc gridcols");
-
-  for (int k = 0; k < grid->size; k++)
   {
-    gridrows[k] = line_to_bin(grid, k, ROW);
-    if ((gridline_count(gridrows[k].ones) > grid->size / 2) |
-        (gridline_count(gridrows[k].zeros) > grid->size / 2))
-      return false;
-
-    gridcols[k] = line_to_bin(grid, k, COL);
-    if ((gridline_count(gridcols[k].ones) > grid->size / 2) |
-        (gridline_count(gridcols[k].zeros) > grid->size / 2))
-      return false;
+    free(gridrows);
+    errx(EXIT_FAILURE, "error : malloc gridcols");
   }
 
   for (int k = 0; k < grid->size; k++)
   {
-    if ((gridrows[k].ones ^ gridrows[k].zeros) == full_line)
+    gridrows[k] = line_to_bin(grid, k, ROW);
+    if (too_many(ones, gridrows) || too_many(zeros, gridrows))
+    {
+      // printf("trop de 0/1 dans ligne %d\n", k);
+      free(gridrows);
+      free(gridcols);
+      return false;
+    }
+
+    gridcols[k] = line_to_bin(grid, k, COL);
+    if (too_many(ones, gridcols) || too_many(zeros, gridcols))
+    {
+      // printf("trop de 0/1 dans colonne %d\n", k);
+      free(gridrows);
+      free(gridcols);
+      return false;
+    }
+  }
+
+  for (int k = 0; k < grid->size; k++)
+  {
+    if line_k_is_full (gridrows)
     {
       for (int l = k + 1; l < grid->size; l++)
       {
-        if (((gridrows[k].ones ^ gridrows[l].ones) == 0) &&
-            ((gridrows[k].zeros ^ gridrows[l].zeros) == 0))
+        if (identical(gridrows, k, l))
         {
+          // printf("ligne %d\n", k);
+          free(gridrows);
+          free(gridcols);
           return false;
         }
       }
@@ -214,9 +222,13 @@ bool no_identical_lines(t_grid *grid)
     {
       for (int l = k + 1; l < grid->size; l++)
       {
-        if (((gridcols[k].ones ^ gridcols[l].ones) == 0) &&
-            ((gridcols[k].zeros ^ gridcols[l].zeros) == 0))
+        if (identical(gridcols, k, l))
+        {
+          // printf("colonne %d\n", k);
+          free(gridrows);
+          free(gridcols);
           return false;
+        }
       }
     }
   }
@@ -232,24 +244,31 @@ bool no_three_in_a_row(t_grid *grid)
   {
     for (int j = 0; j < (grid->size - 2); j++)
     {
-      if (grid->lines[i][j] == '1')
-        if ((grid->lines[i][j + 1] == '1') && (grid->lines[i][j + 2] == '1'))
-          return false;
+      if three_in_a_row_on_a_line (ONE)
+      {
+        printf("three in a row in line %d\n", i);
+        return false;
+      }
 
-      if (grid->lines[i][j] == '0')
-        if ((grid->lines[i][j + 1] == '0') && (grid->lines[i][j + 2] == '0'))
-          return false;
+      if three_in_a_row_on_a_line (ZERO)
+      {
+        printf("three in a row in line %d\n", i);
+        return false;
+      }
 
-      if (grid->lines[j][i] == '1')
-        if ((grid->lines[j + 1][i] == '1') && (grid->lines[j + 2][i] == '1'))
-          return false;
+      if three_in_a_row_on_a_column (ONE)
+      {
+        printf("three in a row in col %d\n", i);
+        return false;
+      }
 
-      if (grid->lines[j][i] == '0')
-        if ((grid->lines[j + 1][i] == '0') && (grid->lines[j + 2][i] == '0'))
-          return false;
+      if three_in_a_row_on_a_column (ZERO)
+      {
+        printf("three in a row in col %d\n", i);
+        return false;
+      }
     }
   }
-
   return true;
 }
 
