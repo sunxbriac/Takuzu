@@ -9,7 +9,7 @@ bool check_char(const t_grid *g, const char c)
   if (c == EMPTY_CELL)
     return true;
 
-  return (c == '0' || c == '1');
+  return (c == ZERO || c == ONE);
 }
 
 bool check_size(const int size)
@@ -129,9 +129,9 @@ binline line_to_bin(t_grid *grid, int k, binline_mode mode)
   {
     for (int i = 0; i < grid->size; i++)
     {
-      if (grid->lines[i][k] == '1')
+      if (grid->lines[i][k] == ONE)
         res.ones |= ((uint64_t)0x1 << (i));
-      if (grid->lines[i][k] == '0')
+      if (grid->lines[i][k] == ZERO)
         res.zeros |= ((uint64_t)0x1 << (i));
     }
   }
@@ -140,9 +140,9 @@ binline line_to_bin(t_grid *grid, int k, binline_mode mode)
   {
     for (int i = 0; i < grid->size; i++)
     {
-      if (grid->lines[k][i] == '1')
+      if (grid->lines[k][i] == ONE)
         res.ones |= ((uint64_t)0x1 << (i));
-      if (grid->lines[k][i] == '0')
+      if (grid->lines[k][i] == ZERO)
         res.zeros |= ((uint64_t)0x1 << (i));
     }
   }
@@ -150,23 +150,15 @@ binline line_to_bin(t_grid *grid, int k, binline_mode mode)
   return res;
 }
 
-int gridline_count(const uint64_t gridline)
+int gridline_count(uint64_t gridline)
 {
-  uint64_t mask5 = (0xFFFFFFFFFFFFFFFF >> 32);
-  uint64_t mask4 = mask5 ^ (mask5 << 16);
-  uint64_t mask3 = mask4 ^ (mask4 << 8);
-  uint64_t mask2 = mask3 ^ (mask3 << 4);
-  uint64_t mask1 = mask2 ^ (mask2 << 2);
-  uint64_t mask0 = mask1 ^ (mask1 << 1);
-
-  uint64_t size = ((gridline >> 1) & mask0) + (gridline & mask0);
-  size = ((size >> 2) & mask1) + (size & mask1);
-  size = ((size >> 4) & mask2) + (size & mask2);
-  size = ((size >> 8) & mask3) + (size & mask3);
-  size = ((size >> 16) & mask4) + (size & mask4);
-  size = ((size >> 32) & mask5) + (size & mask5);
-
-  return (int)size;
+  int count = 0;
+  while (gridline)
+  {
+    gridline &= (gridline - 1);
+    count++;
+  }
+  return count;
 }
 
 // look intrisics count or describe function
@@ -244,29 +236,29 @@ bool no_three_in_a_row(t_grid *grid)
   {
     for (int j = 0; j < (grid->size - 2); j++)
     {
-      if (grid->lines[i][j] == '1')
-        if ((grid->lines[i][j + 1] == '1') && (grid->lines[i][j + 2] == '1'))
+      if (grid->lines[i][j] == ONE)
+        if ((grid->lines[i][j + 1] == ONE) && (grid->lines[i][j + 2] == ONE))
         {
           printf("three in a row in line %d\n",i);
           return false;
         }
 
-      if (grid->lines[i][j] == '0')
-        if ((grid->lines[i][j + 1] == '0') && (grid->lines[i][j + 2] == '0'))
+      if (grid->lines[i][j] == ZERO)
+        if ((grid->lines[i][j + 1] == ZERO) && (grid->lines[i][j + 2] == ZERO))
         {
           printf("three in a row in line %d\n",i);
           return false;
         }
 
-      if (grid->lines[j][i] == '1')
-        if ((grid->lines[j + 1][i] == '1') && (grid->lines[j + 2][i] == '1'))
+      if (grid->lines[j][i] == ONE)
+        if ((grid->lines[j + 1][i] == ONE) && (grid->lines[j + 2][i] == ONE))
         {
           printf("three in a row in col %d\n",i);
           return false;
         }
 
-      if (grid->lines[j][i] == '0')
-        if ((grid->lines[j + 1][i] == '0') && (grid->lines[j + 2][i] == '0'))
+      if (grid->lines[j][i] == ZERO)
+        if ((grid->lines[j + 1][i] == ZERO) && (grid->lines[j + 2][i] == ZERO))
         {
           printf("three in a row in col %d\n",i);
           return false;
