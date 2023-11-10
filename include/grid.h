@@ -63,7 +63,7 @@ char get_cell(int i, int j, t_grid *grid);
 binline line_to_bin(t_grid *grid, int k, axis_mode mode);
 
 /* returns the number of ones or zeros in the given binary line */
-int gridline_count(const uint64_t gridline);
+int gridline_count(uint64_t gridline);
 
 /*  checks if there are any lines or columns in the given grid that are
     identical comparing the binary naturals representing the position of

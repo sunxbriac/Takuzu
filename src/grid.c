@@ -8,9 +8,9 @@
                                ((axis[k].zeros ^ axis[l].zeros) == 0))
 
 #define three_in_a_row_on_a_line(c) ((grid->lines[i][j] == c) && \
-                                     (grid->lines[i][j + 1] == c) && (grid->lines[i][j + 2] == c))
+                  (grid->lines[i][j + 1] == c) && (grid->lines[i][j + 2] == c))
 #define three_in_a_row_on_a_column(c) ((grid->lines[j][i] == c) && \
-                                       (grid->lines[j + 1][i] == c) && (grid->lines[j + 2][i] == c))
+                  (grid->lines[j + 1][i] == c) && (grid->lines[j + 2][i] == c))
 
 bool check_char(const t_grid *g, const char c)
 {
