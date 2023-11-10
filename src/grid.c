@@ -95,7 +95,7 @@ void grid_copy(t_grid *grid, t_grid *grid_copy)
 
 void set_cell(int i, int j, t_grid *grid, char v)
 {
-  if (!grid || i >= grid->size || j >= grid->size)
+  if (!grid || i >= grid->size || j >= grid->size || j < 0 || i < 0)
   {
     warnx("error : set_cell wrong indexes / NULL grid");
     return;
@@ -111,13 +111,13 @@ char get_cell(int i, int j, t_grid *grid)
     warnx("error : get_cell wrong indexes / NULL grid");
     return ERROR_CHAR;
   }
-
-  if (!check_char(grid, grid->lines[i][j]))
-  {
-    warnx("error : get_cell non-relevant character");
-    return ERROR_CHAR;
-  }
-
+  /*
+    if (!check_char(grid, grid->lines[i][j]))
+    {
+      warnx("error : get_cell non-relevant character");
+      return ERROR_CHAR;
+    }
+  */
   return grid->lines[i][j];
 }
 
@@ -169,6 +169,8 @@ int gridline_count(const uint64_t gridline)
   return (int)size;
 }
 
+// look intrisics count or describe function
+
 bool no_identical_lines(t_grid *grid)
 {
   binline *gridrows;
@@ -188,12 +190,18 @@ bool no_identical_lines(t_grid *grid)
     gridrows[k] = line_to_bin(grid, k, ROW);
     if ((gridline_count(gridrows[k].ones) > grid->size / 2) |
         (gridline_count(gridrows[k].zeros) > grid->size / 2))
+    {
+      printf("trop de 0/1 dans ligne %d\n", k);
       return false;
-    
+    }
+
     gridcols[k] = line_to_bin(grid, k, COL);
     if ((gridline_count(gridcols[k].ones) > grid->size / 2) |
         (gridline_count(gridcols[k].zeros) > grid->size / 2))
+    {
+      printf("trop de 0/1 dans colonne %d\n", k);
       return false;
+    }
   }
 
   for (int k = 0; k < grid->size; k++)
@@ -205,6 +213,7 @@ bool no_identical_lines(t_grid *grid)
         if (((gridrows[k].ones ^ gridrows[l].ones) == 0) &&
             ((gridrows[k].zeros ^ gridrows[l].zeros) == 0))
         {
+          printf("ligne %d\n", k);
           return false;
         }
       }
@@ -216,7 +225,10 @@ bool no_identical_lines(t_grid *grid)
       {
         if (((gridcols[k].ones ^ gridcols[l].ones) == 0) &&
             ((gridcols[k].zeros ^ gridcols[l].zeros) == 0))
+        {
+          printf("colonne %d\n", k);
           return false;
+        }
       }
     }
   }
@@ -234,22 +246,34 @@ bool no_three_in_a_row(t_grid *grid)
     {
       if (grid->lines[i][j] == '1')
         if ((grid->lines[i][j + 1] == '1') && (grid->lines[i][j + 2] == '1'))
+        {
+          printf("three in a row in line %d\n",i);
           return false;
+        }
 
       if (grid->lines[i][j] == '0')
         if ((grid->lines[i][j + 1] == '0') && (grid->lines[i][j + 2] == '0'))
+        {
+          printf("three in a row in line %d\n",i);
           return false;
+        }
 
       if (grid->lines[j][i] == '1')
         if ((grid->lines[j + 1][i] == '1') && (grid->lines[j + 2][i] == '1'))
+        {
+          printf("three in a row in col %d\n",i);
           return false;
+        }
 
       if (grid->lines[j][i] == '0')
         if ((grid->lines[j + 1][i] == '0') && (grid->lines[j + 2][i] == '0'))
+        {
+          printf("three in a row in col %d\n",i);
           return false;
+        }
     }
   }
-
+  // écrire macro pour remplacer grosses expressions
   return true;
 }
 
@@ -271,3 +295,5 @@ bool is_valid(t_grid *grid)
 {
   return is_full(grid) && is_consistent(grid);
 }
+
+// on peut stocker dans un seul objet mais faire gaffe a mettre a jour les colonnes et les lignes en même temps
