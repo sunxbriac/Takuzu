@@ -129,9 +129,9 @@ binline line_to_bin(t_grid *grid, int k, axis_mode mode)
   {
     for (int i = 0; i < grid->size; i++)
     {
-      if (grid->lines[i][k] == ONE)
+      if (grid->lines[i][k] == '1')
         res.ones |= ((uint64_t)0x1 << (i));
-      if (grid->lines[i][k] == ZERO)
+      if (grid->lines[i][k] == '0')
         res.zeros |= ((uint64_t)0x1 << (i));
     }
   }
@@ -140,14 +140,33 @@ binline line_to_bin(t_grid *grid, int k, axis_mode mode)
   {
     for (int i = 0; i < grid->size; i++)
     {
-      if (grid->lines[k][i] == ONE)
+      if (grid->lines[k][i] == '1')
         res.ones |= ((uint64_t)0x1 << (i));
-      if (grid->lines[k][i] == ZERO)
+      if (grid->lines[k][i] == '0')
         res.zeros |= ((uint64_t)0x1 << (i));
     }
   }
 
   return res;
+}
+
+int gridline_count(const uint64_t gridline)
+{
+  uint64_t mask5 = (0xFFFFFFFFFFFFFFFF >> 32);
+  uint64_t mask4 = mask5 ^ (mask5 << 16);
+  uint64_t mask3 = mask4 ^ (mask4 << 8);
+  uint64_t mask2 = mask3 ^ (mask3 << 4);
+  uint64_t mask1 = mask2 ^ (mask2 << 2);
+  uint64_t mask0 = mask1 ^ (mask1 << 1);
+
+  uint64_t size = ((gridline >> 1) & mask0) + (gridline & mask0);
+  size = ((size >> 2) & mask1) + (size & mask1);
+  size = ((size >> 4) & mask2) + (size & mask2);
+  size = ((size >> 8) & mask3) + (size & mask3);
+  size = ((size >> 16) & mask4) + (size & mask4);
+  size = ((size >> 32) & mask5) + (size & mask5);
+
+  return (int)size;
 }
 
 bool no_identical_lines(t_grid *grid)
@@ -167,7 +186,14 @@ bool no_identical_lines(t_grid *grid)
   for (int k = 0; k < grid->size; k++)
   {
     gridrows[k] = line_to_bin(grid, k, ROW);
+    if ((gridline_count(gridrows[k].ones) > grid->size / 2) |
+        (gridline_count(gridrows[k].zeros) > grid->size / 2))
+      return false;
+
     gridcols[k] = line_to_bin(grid, k, COL);
+    if ((gridline_count(gridcols[k].ones) > grid->size / 2) |
+        (gridline_count(gridcols[k].zeros) > grid->size / 2))
+      return false;
   }
 
   for (int k = 0; k < grid->size; k++)
@@ -206,20 +232,21 @@ bool no_three_in_a_row(t_grid *grid)
   {
     for (int j = 0; j < (grid->size - 2); j++)
     {
-      if ((grid->lines[i][j] == ONE) && (grid->lines[i][j + 1] == ONE) &&
-          (grid->lines[i][j + 2] == ONE))
-        return false;
+      if (grid->lines[i][j] == '1')
+        if ((grid->lines[i][j + 1] == '1') && (grid->lines[i][j + 2] == '1'))
+          return false;
 
-      if ((grid->lines[i][j] == ZERO) && (grid->lines[i][j + 1] == ZERO) &&
-          (grid->lines[i][j + 2] == ZERO))
-        return false;
+      if (grid->lines[i][j] == '0')
+        if ((grid->lines[i][j + 1] == '0') && (grid->lines[i][j + 2] == '0'))
+          return false;
 
-      if ((grid->lines[j][i] == ONE) && (grid->lines[j + 1][i] == ONE) &&
-          (grid->lines[j + 2][i] == ONE))
-        return false;
+      if (grid->lines[j][i] == '1')
+        if ((grid->lines[j + 1][i] == '1') && (grid->lines[j + 2][i] == '1'))
+          return false;
 
-      if ((grid->lines[j][i] == ZERO) && (grid->lines[j + 1][i] == ZERO) && (grid->lines[j + 2][i] == ZERO))
-        return false;
+      if (grid->lines[j][i] == '0')
+        if ((grid->lines[j + 1][i] == '0') && (grid->lines[j + 2][i] == '0'))
+          return false;
     }
   }
 
@@ -286,12 +313,10 @@ bool consecutive_cells_heuristic(t_grid *grid)
   return change;
 }
 
-// lots of entries in order to have good-looking heuristic & performance
-bool half_line_filled(t_grid *grid, int i, axis_mode mode, int zeroscount,
-                      int onescount, int halfsize)
+bool half_line_filled(t_grid *grid, int i, axis_mode mode, int halfsize)
 {
   bool change = false;
-  zeroscount = onescount = 0;
+  int zeroscount = 0, onescount = 0;
 
   if (mode) // we're looking at columns
   {
@@ -355,16 +380,36 @@ bool half_line_filled(t_grid *grid, int i, axis_mode mode, int zeroscount,
 bool half_line_heuristic(t_grid *grid)
 {
   bool change = false;
-  int zeroscount, onescount;
   int halfsize = grid->size / 2;
 
   for (int i = 0; i < grid->size; i++)
   {
     change = change ||
-             half_line_filled(grid, i, ROW, zeroscount, onescount, halfsize) ||
-             half_line_filled(grid, i, COL, zeroscount, onescount, halfsize);
+             half_line_filled(grid, i, ROW, halfsize) || 
+             half_line_filled(grid, i, COL, halfsize);
   }
   return change;
+}
+
+bool grid_heuristics(t_grid *grid)
+{
+  if (!is_consistent(grid))
+    errx(EXIT_FAILURE, "error : grid_heuristics grid isn't consistent");
+
+  bool keep_going = true;
+
+  while (keep_going)
+  {
+    keep_going = false;
+    
+    while (consecutive_cells_heuristic(grid))
+      keep_going = true;    // we don't enter the loop and keep_going stays false
+    
+    while (half_line_heuristic(grid))
+      keep_going = true;    
+  }
+  
+  return is_valid(grid);
 }
 
 // utiliser get_cell a chaque fois même dans le module grid ?

@@ -1,5 +1,8 @@
 #include "takuzu.h"
 
+static bool seeded = false;
+static bool verbose = false;
+
 static bool fill_grid(t_grid *grid, int size, int *current_ptr,
                       FILE *parsing_file, int *row, int *col)
 {
@@ -173,7 +176,15 @@ error:
   return NULL;
 }
 
-static bool verbose = false;
+static void grid_generator(t_grid *grid, int index_tab)
+{
+  if (grid == NULL)
+    NULL;
+  
+  
+
+  
+}
 
 static void print_help()
 {
@@ -321,12 +332,44 @@ int main(int argc, char *argv[])
 
   if (generator)
   {
+    if (!seeded)
+    {
+      srand(time(NULL));
+      seeded = true;
+    }
     t_grid grid;
     grid_allocate(&grid, size);
+
+    int square_size = size * size;
+    int index_tab[square_size];
+    for (int i = 0; i < square_size; i++)
+      index_tab[i] = i;
+
+    // shuffle index tab
+    int j, temp;
+    for (int i = 0; i < square_size; i++)
+    {
+      j = i + rand() % (square_size - i);
+      temp = index_tab[i];
+      index_tab[i] = index_tab[j];
+      index_tab[j] = temp;
+    }
+
+    grid_generator(&grid, index_tab);
+
+    // remove random cells
+    int row, col;
+    for (int i = 0; i < (int)(N * square_size); i++)
+    {
+      row = index_tab[i] / size;
+      col = index_tab[i] % size;
+      set_cell(row, col, &grid, EMPTY_CELL);
+    }
 
     grid_print(&grid, file);
     grid_free(&grid);
   }
+
 
   if (file != stdout)
     fclose(file);

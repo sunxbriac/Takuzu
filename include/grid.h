@@ -62,6 +62,9 @@ char get_cell(int i, int j, t_grid *grid);
 /* creates a tuple of 2 binary naturals that we'll use in another function */
 binline line_to_bin(t_grid *grid, int k, axis_mode mode);
 
+/* returns the number of ones or zeros in the given binary line */
+int gridline_count(const uint64_t gridline);
+
 /*  checks if there are any lines or columns in the given grid that are
     identical comparing the binary naturals representing the position of
     the ones and zeros in the lines/columns. */
@@ -78,5 +81,19 @@ bool is_full(t_grid *grid);
 
 /* checks if a grid is full and consistent */
 bool is_valid(t_grid *grid);
+
+/* check if there are 2 zeros or 2 ones next to each other and fills 
+   the next cell to opposite if empty */
+bool consecutive_cells_heuristic(t_grid *grid);
+
+/* checks if there are already half of zeros or one in a row/column 
+   and fills the other cells with the opposite in that row/column */
+bool half_line_filled(t_grid *grid, int i, axis_mode mode, int halfsize);
+
+/* calls half_line_filled on every column/grid */
+bool half_line_heuristic(t_grid *grid);
+
+/* calls all our heuristics on the grid and stops when no changes are made anymore */
+bool grid_heuristics(t_grid *grid);
 
 #endif /* GRID_H */

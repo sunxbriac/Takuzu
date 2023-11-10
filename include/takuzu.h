@@ -7,8 +7,11 @@
 
 #include <err.h>
 #include <getopt.h>
+#include <time.h>
 
 #include <grid.h>
+
+#define N 0.5
 
 /*  fills a grid from row and col (will always be 1 and 0 respectively)
     with characters from the parsing_file  */
