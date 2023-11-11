@@ -57,6 +57,7 @@ static bool fill_grid(t_grid *grid, int size, int *current_ptr,
     fills the first grid with the first line of the file and checks if the size
     of the line is a correct one, if yes fills the rest of the grid and
     checks subsiding errors : wrong character, wrong number of characters.. */
+
 static t_grid *file_parser(char *filename)
 {
   FILE *parsing_file = NULL;
@@ -319,6 +320,7 @@ int main(int argc, char *argv[])
       grid_free(grid);
     }
   }
+  
 
   if (generator)
   {

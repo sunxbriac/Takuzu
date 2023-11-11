@@ -19,15 +19,16 @@
 
 typedef struct
 {
-  int size;
-  char **lines;
-} t_grid;
-
-typedef struct
-{
   uint64_t ones;
   uint64_t zeros;
 } binline;
+
+typedef struct
+{
+  int size;
+  binline *lines;
+  binline *columns;
+} t_grid;
 
 typedef enum
 {
