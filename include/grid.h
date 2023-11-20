@@ -2,6 +2,7 @@
 #define GRID_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,20 +20,21 @@
 
 typedef struct
 {
-  int size;
-  char **lines;
-} t_grid;
-
-typedef struct
-{
   uint64_t ones;
   uint64_t zeros;
 } binline;
 
+typedef struct
+{
+  int size;
+  binline *lines;
+  binline *columns;
+} t_grid;
+
 typedef enum
 {
-  ROW,
-  COL
+  LINE,
+  COLUMN
 } axis_mode;
 
 /* checks if a character is a significant one */
@@ -62,7 +64,7 @@ char get_cell(int i, int j, t_grid *grid);
 /* creates a tuple of 2 binary naturals that we'll use in another function */
 binline line_to_bin(t_grid *grid, int k, axis_mode mode);
 
-/* returns the number of ones or zeros in the given binary line */
+/* counts the bits to 1 in a binary int */
 int gridline_count(uint64_t gridline);
 
 /*  checks if there are any lines or columns in the given grid that are
@@ -88,7 +90,7 @@ bool consecutive_cells_heuristic(t_grid *grid);
 
 /* checks if there are already half of zeros or one in a row/column 
    and fills the other cells with the opposite in that row/column */
-bool half_line_filled(t_grid *grid, int i, axis_mode mode, int halfsize);
+bool half_line_filled(t_grid *grid, int i, int halfsize);
 
 /* calls half_line_filled on every column/grid */
 bool half_line_heuristic(t_grid *grid);

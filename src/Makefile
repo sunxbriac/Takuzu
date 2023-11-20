@@ -5,6 +5,8 @@ EXE = takuzu
 
 all : takuzu 
 
+rebuild : clean takuzu
+
 debug: takuzu.o
 	$(CC) $(CFLAGS) -g3 $(CPPFLAGS) -o $(EXE) $^ $(LDFLAGS)
 

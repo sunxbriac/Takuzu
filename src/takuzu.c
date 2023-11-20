@@ -59,6 +59,7 @@ static bool fill_grid(t_grid *grid, int size, int *current_ptr,
     fills the first grid with the first line of the file and checks if the size
     of the line is a correct one, if yes fills the rest of the grid and
     checks subsiding errors : wrong character, wrong number of characters.. */
+
 static t_grid *file_parser(char *filename)
 {
   FILE *parsing_file = NULL;
@@ -176,15 +177,6 @@ error:
   return NULL;
 }
 
-static void grid_generator(t_grid *grid, int index_tab)
-{
-  if (grid == NULL)
-    NULL;
-  
-  
-
-  
-}
 
 static void print_help()
 {
@@ -318,14 +310,17 @@ int main(int argc, char *argv[])
 
       fprintf(file, "# input grid : \n");
       grid_print(grid, file);
-
+      
       printf("no lines are identical : %d\n", no_identical_lines(grid));
       printf("there aren't three in a row : %d\n", no_three_in_a_row(grid));
       printf("grid is consistent : %d\n", is_consistent(grid));
 
       printf("grid is full: %d\n", is_full(grid));
       printf("grid is valid : %d\n", is_valid(grid));
-
+      
+      grid_heuristics(grid);
+      grid_print(grid, file);
+      
       grid_free(grid);
     }
   }
@@ -354,8 +349,6 @@ int main(int argc, char *argv[])
       index_tab[i] = index_tab[j];
       index_tab[j] = temp;
     }
-
-    grid_generator(&grid, index_tab);
 
     // remove random cells
     int row, col;
