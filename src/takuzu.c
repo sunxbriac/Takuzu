@@ -177,6 +177,52 @@ error:
   return NULL;
 }
 
+static t_grid *grid_generate(int size)
+{
+  t_grid g;
+  t_grid *grid = &g;
+
+  while (true)
+  {
+
+    grid_allocate(&g, size);
+
+    int square_size = size * size;
+    int index_tab[square_size];
+    for (int i = 0; i < square_size; i++)
+      index_tab[i] = i;
+
+    int j, temp;
+    for (int i = 0; i < square_size; i++)
+    {
+      j = i + rand() % (square_size - i);
+      temp = index_tab[i];
+      index_tab[i] = index_tab[j];
+      index_tab[j] = temp;
+    }
+
+    int i;
+    for (i = 0; i < (int)(N * square_size); i++)
+    {
+      set_cell(index_tab[i] / size, index_tab[i] % size, grid, (i % 2) + '0');
+      if (!is_consistent(grid))
+      {
+        set_cell(index_tab[i] / size, index_tab[i] % size, grid, EMPTY_CELL);
+        set_cell(index_tab[i] / size, index_tab[i] % size, grid, ((i + 1) % 2) + '0');
+      }
+      if (!is_consistent(grid))
+        break;
+    }
+
+    if (i >= (int)(N * square_size))
+      break;
+
+    else
+      grid_free(grid);
+  }
+
+  return grid;
+}
 
 static void print_help()
 {
@@ -310,20 +356,20 @@ int main(int argc, char *argv[])
 
       fprintf(file, "# input grid : \n");
       grid_print(grid, file);
-      
+
       printf("no lines are identical : %d\n", no_identical_lines(grid));
       printf("there aren't three in a row : %d\n", no_three_in_a_row(grid));
       printf("grid is consistent : %d\n", is_consistent(grid));
 
       printf("grid is full: %d\n", is_full(grid));
-      printf("grid is valid : %d\n", is_valid(grid));
-      
+      printf("grid is valid : %d\n\n", is_valid(grid));
+
       grid_heuristics(grid);
       grid_print(grid, file);
-      
       grid_free(grid);
     }
   }
+  
 
   if (generator)
   {
@@ -332,37 +378,51 @@ int main(int argc, char *argv[])
       srand(time(NULL));
       seeded = true;
     }
-    t_grid grid;
-    grid_allocate(&grid, size);
 
-    int square_size = size * size;
-    int index_tab[square_size];
-    for (int i = 0; i < square_size; i++)
-      index_tab[i] = i;
-
-    // shuffle index tab
-    int j, temp;
-    for (int i = 0; i < square_size; i++)
-    {
-      j = i + rand() % (square_size - i);
-      temp = index_tab[i];
-      index_tab[i] = index_tab[j];
-      index_tab[j] = temp;
-    }
-
-    // remove random cells
-    int row, col;
-    for (int i = 0; i < (int)(N * square_size); i++)
-    {
-      row = index_tab[i] / size;
-      col = index_tab[i] % size;
-      set_cell(row, col, &grid, EMPTY_CELL);
-    }
-
-    grid_print(&grid, file);
-    grid_free(&grid);
+    t_grid *grid = grid_generate(size);
+    grid_print(grid, file);
+    grid_free(grid);
   }
 
+  /* GENERATOR 2
+    if (generator)
+    {
+      if (!seeded)
+      {
+        srand(time(NULL));
+        seeded = true;
+      }
+      t_grid grid;
+      grid_allocate(&grid, size);
+
+      int square_size = size * size;
+      int index_tab[square_size];
+      for (int i = 0; i < square_size; i++)
+        index_tab[i] = i;
+
+      // shuffle index tab
+      int j, temp;
+      for (int i = 0; i < square_size; i++)
+      {
+        j = i + rand() % (square_size - i);
+        temp = index_tab[i];
+        index_tab[i] = index_tab[j];
+        index_tab[j] = temp;
+      }
+
+      // remove random cells
+      int row, col;
+      for (int i = 0; i < (int)(N * square_size); i++)
+      {
+        row = index_tab[i] / size;
+        col = index_tab[i] % size;
+        set_cell(row, col, &grid, EMPTY_CELL);
+      }
+
+      grid_print(&grid, file);
+      grid_free(&grid);
+    }
+    */
 
   if (file != stdout)
     fclose(file);

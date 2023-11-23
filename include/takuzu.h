@@ -11,7 +11,8 @@
 
 #include <grid.h>
 
-#define N 0.5
+#define N 0.3
+
 
 /*  fills a grid from row and col (will always be 1 and 0 respectively)
     with characters from the parsing_file  */
