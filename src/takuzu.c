@@ -211,14 +211,14 @@ static t_grid *grid_generate(int size)
         set_cell(index_tab[i] / size, index_tab[i] % size, grid, ((i + 1) % 2) + '0');
       }
       if (!is_consistent(grid))
-        break;
+      { break; }
     }
 
     if (i >= (int)(N * square_size))
-      break;
+    { break; }
 
     else
-      grid_free(grid);
+    { grid_free(grid); }
   }
 
   return grid;
@@ -383,46 +383,6 @@ int main(int argc, char *argv[])
     grid_print(grid, file);
     grid_free(grid);
   }
-
-  /* GENERATOR 2
-    if (generator)
-    {
-      if (!seeded)
-      {
-        srand(time(NULL));
-        seeded = true;
-      }
-      t_grid grid;
-      grid_allocate(&grid, size);
-
-      int square_size = size * size;
-      int index_tab[square_size];
-      for (int i = 0; i < square_size; i++)
-        index_tab[i] = i;
-
-      // shuffle index tab
-      int j, temp;
-      for (int i = 0; i < square_size; i++)
-      {
-        j = i + rand() % (square_size - i);
-        temp = index_tab[i];
-        index_tab[i] = index_tab[j];
-        index_tab[j] = temp;
-      }
-
-      // remove random cells
-      int row, col;
-      for (int i = 0; i < (int)(N * square_size); i++)
-      {
-        row = index_tab[i] / size;
-        col = index_tab[i] % size;
-        set_cell(row, col, &grid, EMPTY_CELL);
-      }
-
-      grid_print(&grid, file);
-      grid_free(&grid);
-    }
-    */
 
   if (file != stdout)
     fclose(file);

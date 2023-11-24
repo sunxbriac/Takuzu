@@ -12,14 +12,17 @@
 #define three_in_a_row_on_a_line(c) ((grid->lines[i].c & (grid->lines[i].c >> 1) & (grid->lines[i].c >> 2)) != 0)
 #define three_in_a_row_on_a_column(c) ((grid->columns[i].c & (grid->columns[i].c >> 1) & (grid->columns[i].c >> 2)) != 0)
 
-// offset corresponds to the offset value in memory between the type and its members
 #define gridaxis(axis_os, i) ((*(binline **)((char *)grid + axis_os))[i])
 // returns grid->axis[i], axis being lines or columns
 #define i_axis_type(type_os, axis_os, i) (*(uint64_t *)((char *)&(gridaxis(axis_os, i)) + type_os))
 // returns grid->axis[i].type, type being ones or zeros
-#define set_temp_binary_value (temp_binary = i_axis_type(toffset, aoffset, i) & (i_axis_type(toffset, aoffset, i) >> 1))
+#define set_temp_binary_shift(shift) (temp_binary = i_axis_type(toffset, aoffset, i) & (i_axis_type(toffset, aoffset, i) >> shift))
 // temp_binary will have ones where there are 2 identical characters in a row
 #define is_empty(i, j) (((grid->lines[i].ones & singleton(j)) == 0) & ((grid->lines[i].zeros & singleton(j)) == 0))
+
+// offset corresponds to the offset value in memory between the type and its members
+#define opp_aoffset(axis_offset) ((axis_offset * 2) % (offset_columns + offset_lines))
+#define opp_toffset(type_offset) ((type_offset + offset_zeros) % (offset_zeros * 2))
 
 // -------------------- GLOBAL VARS ----------------------- //
 size_t offset_lines = offsetof(t_grid, lines);
@@ -175,7 +178,7 @@ int gridline_count(uint64_t gridline)
   int count = 0;
   while (gridline)
   {
-    gridline &= (gridline - 1);   // Remove the last non-zero bit
+    gridline &= (gridline - 1); // Remove the last non-zero bit
     count++;
   }
   return count;
@@ -236,28 +239,16 @@ bool no_three_in_a_row(t_grid *grid)
     for (int j = 0; j < (grid->size - 2); j++)
     {
       if three_in_a_row_on_a_line (ones)
-      {
-        printf("three ones in a row in line %d\n", i);
         return false;
-      }
 
       if three_in_a_row_on_a_line (zeros)
-      {
-        printf("three zeros in a row in line %d\n", i);
         return false;
-      }
 
       if three_in_a_row_on_a_column (ones)
-      {
-        printf("three ones in a row in col %d\n", i);
         return false;
-      }
 
       if three_in_a_row_on_a_column (zeros)
-      {
-        printf("three zeros in a row in col %d\n", i);
         return false;
-      }
     }
   }
   return true;
@@ -283,21 +274,11 @@ bool is_valid(t_grid *grid)
   return is_full(grid) && is_consistent(grid);
 }
 
-static inline size_t opp_aoffset(size_t axis_offset) // Opposite axis offset
-{
-  return ((axis_offset * 2) % (offset_columns + offset_lines));
-}
-
-static inline size_t opp_toffset(size_t type_offset) // Opposite type offset
-{
-  return ((type_offset + offset_zeros) % (offset_zeros * 2));
-}
-
-static inline bool consec_subheuristic(t_grid *grid, int i, bool change,
+static bool consec_subheuristic(t_grid *grid, int i, bool change,
                                        size_t aoffset, size_t toffset)
 {
   uint64_t temp_binary;
-  set_temp_binary_value;
+  set_temp_binary_shift(1);
   for (int count = 0; count < grid->size - 1; count++)
   {
     if (((temp_binary >> count) & 1) == 1)
@@ -306,28 +287,26 @@ static inline bool consec_subheuristic(t_grid *grid, int i, bool change,
       {
         if (!((i_axis_type(opp_toffset(toffset), aoffset, i) >> (count - 1)) & 1)) // If the bit before isn't 0
         {
-          printf("ici\n");
-          printf("count = %d, i = %d, offsets = %ld & %ld\n", count, i, aoffset, toffset);
-          grid_print(grid, stdout);
-          printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
+          // printf("consec before\n");
+          // grid_print(grid, stdout);
+          // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
           i_axis_type(opp_toffset(toffset), aoffset, i) |= singleton(count - 1);
           i_axis_type(opp_toffset(toffset), opp_aoffset(aoffset), count - 1) |= singleton(i);
           change = true;
-          grid_print(grid, stdout);
+          // grid_print(grid, stdout);
         }
       }
       if (count != (grid->size - 2)) // We don't want to access grid->size index
       {
-        if (!((i_axis_type(opp_toffset(toffset), aoffset, i) >> (count + 2)) & 1)) 
+        if (!((i_axis_type(opp_toffset(toffset), aoffset, i) >> (count + 2)) & 1))
         {
-          printf("la\n");
-          printf("count = %d, i = %d, offsets = %ld & %ld\n", count, i, aoffset, toffset);
-          grid_print(grid, stdout);
-          printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
+          // printf("consec after");
+          // grid_print(grid, stdout);
+          // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
           i_axis_type(opp_toffset(toffset), aoffset, i) |= singleton(count + 2);
           i_axis_type(opp_toffset(toffset), opp_aoffset(aoffset), count + 2) |= singleton(i);
           change = true;
-          grid_print(grid, stdout);
+          // grid_print(grid, stdout);
         }
       }
     }
@@ -354,23 +333,23 @@ bool half_line_filled(t_grid *grid, int i, int halfsize)
   bool change = false;
   int onescount = gridline_count(grid->lines[i].ones);
   int zeroscount = gridline_count(grid->lines[i].zeros);
-  
+
   // LINES
   if (onescount == halfsize)
   {
     if (zeroscount < halfsize)
-    {                                           
+    {
       for (int j = 0; j < grid->size; j++)
       {
         if (is_empty(i, j))
         {
-          printf("on rentre dans 1\n");
-          grid_print(grid, stdout);
-          printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
+          // printf("fill line of zeros\n");
+          // grid_print(grid, stdout);
+          // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
           change = true;
           grid->lines[i].zeros |= singleton(j);
           grid->columns[j].zeros |= singleton(i);
-          grid_print(grid, stdout);
+          // grid_print(grid, stdout);
         }
       }
     }
@@ -384,13 +363,13 @@ bool half_line_filled(t_grid *grid, int i, int halfsize)
       {
         if (is_empty(i, j))
         {
-          printf("on rentre dans 2\n");
-          grid_print(grid, stdout);
-          printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
+          // printf("fill line of ones\n");
+          //  grid_print(grid, stdout);
+          //  printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
           change = true;
           grid->lines[i].ones |= singleton(j);
           grid->columns[j].ones |= singleton(i);
-          grid_print(grid, stdout);
+          // grid_print(grid, stdout);
         }
       }
     }
@@ -403,19 +382,19 @@ bool half_line_filled(t_grid *grid, int i, int halfsize)
   if (onescount == halfsize)
   {
     if (zeroscount < halfsize)
-    { 
+    {
       for (int j = 0; j < grid->size; j++)
       {
 
         if (is_empty(j, i))
         {
-          printf("on rentre dans 3\n");
-          grid_print(grid, stdout);
-          printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
+          // printf("fill columns of zeros\n");
+          // grid_print(grid, stdout);
+          // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
           change = true;
           grid->columns[i].zeros |= singleton(j);
           grid->lines[j].zeros |= singleton(i);
-          grid_print(grid, stdout);
+          // grid_print(grid, stdout);
         }
       }
     }
@@ -429,18 +408,18 @@ bool half_line_filled(t_grid *grid, int i, int halfsize)
       {
         if (is_empty(j, i))
         {
-          printf("on rentre dans 4\n");
-          grid_print(grid, stdout);
-          printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
+          // printf("fill columns of ones\n");
+          // grid_print(grid, stdout);
+          // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
           change = true;
           grid->columns[i].ones |= singleton(j);
           grid->lines[j].ones |= singleton(i);
-          grid_print(grid, stdout);
+          // grid_print(grid, stdout);
         }
       }
     }
   }
-  
+
   return change;
 }
 
@@ -448,10 +427,47 @@ bool half_line_heuristic(t_grid *grid)
 {
   bool change = false;
   int halfsize = grid->size / 2;
-  printf("on rentre dans half line heuristics \n");
   for (int i = 0; i < grid->size; i++)
   {
     change = change || half_line_filled(grid, i, halfsize);
+  }
+  return change;
+}
+
+static bool inbetween_subheuristic(t_grid *grid, int i, bool change,
+                                          size_t aoffset, size_t toffset)
+{
+  uint64_t temp_binary;
+  set_temp_binary_shift(2);
+  for (int count = 0; count < grid->size - 2; count++)
+  {
+    if (((temp_binary >> count) & 1) == 1)
+    {
+      if (!((i_axis_type(opp_toffset(toffset), aoffset, i) >> (count + 1)) & 1)) // If the bit before isn't 0
+      {
+        // printf("inbetween before\n");
+        // grid_print(grid, stdout);
+        // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
+        i_axis_type(opp_toffset(toffset), aoffset, i) |= singleton(count + 1);
+        i_axis_type(opp_toffset(toffset), opp_aoffset(aoffset), count + 1) |= singleton(i);
+        change = true;
+        // grid_print(grid, stdout);
+      }
+    }
+  }
+  return change;
+}
+
+bool inbetween_cells_heuristic(t_grid *grid)
+{
+  bool change = false;
+
+  for (int i = 0; i < grid->size; i++)
+  {
+    change = inbetween_subheuristic(grid, i, change, offset_lines, offset_ones) || change;
+    change = inbetween_subheuristic(grid, i, change, offset_lines, offset_zeros) || change;
+    change = inbetween_subheuristic(grid, i, change, offset_columns, offset_ones) || change;
+    change = inbetween_subheuristic(grid, i, change, offset_columns, offset_zeros) || change;
   }
   return change;
 }
@@ -470,14 +486,30 @@ bool grid_heuristics(t_grid *grid)
     while (consecutive_cells_heuristic(grid))
     {
       if (!is_consistent(grid))
+      {
+        grid_print(grid, stdout);
         errx(EXIT_FAILURE, "error : grid_heuristics grid isn't consistent");
-      keep_going = true; // we don't enter the loop and keep_going stays false
+      }
+      keep_going = true; // We don't enter the loop and keep_going stays false
+    }
+
+    while (inbetween_cells_heuristic(grid))
+    {
+      if (!is_consistent(grid))
+      {
+        grid_print(grid, stdout);
+        errx(EXIT_FAILURE, "error : grid_heuristics grid isn't consistent");
+      }
+      keep_going = true;
     }
 
     while (half_line_heuristic(grid))
     {
       if (!is_consistent(grid))
+      {
+        grid_print(grid, stdout);
         errx(EXIT_FAILURE, "error : grid_heuristics grid isn't consistent");
+      }
       keep_going = true;
     }
   }
@@ -485,7 +517,55 @@ bool grid_heuristics(t_grid *grid)
   return is_valid(grid);
 }
 
-// utiliser get_cell a chaque fois même dans le module grid ?
-// dans ce cas il serait bcp plus efficace que get_cell errx plutôt que
-// de retourner un mauvais caractère car ça nous oblige a tester le
-// retour de get_cell a chaque fois qu'on l'appelle.
+/*
+void grid_choice_apply(t_grid *grid, const choice_t *choice)
+{
+  switch (choice->choice)
+  {
+  case ONE:
+    grid->lines[choice->row].ones |= singleton(choice->column);
+    grid->columns[choice->column].ones |= singleton(choice->row);
+    break;
+
+  case ZERO:
+    grid->lines[choice->row].zeros |= singleton(choice->column);
+    grid->columns[choice->column].zeros |= singleton(choice->row);
+    break;
+
+  default:
+    warnx("error : choice_apply non-valid character");
+    return;
+  }
+}
+
+void grid_choice_print(const choice_t *choice, FILE *fd)
+{
+  fprintf(fd, "Next choice at grid[%ld][%ld] ", choice->row, choice->column);
+  fprintf(fd, "is '%s'.\n", choice->choice);
+}
+
+choice_t grid_choice(t_grid *grid)
+{
+  int max= 0;
+  int max_index;
+  axis_mode axis;
+
+  for (int i = 0; i < grid->size; i++)
+  {
+
+    int count = gridline_count(grid->lines[i].ones) + gridline_count(grid->lines[i].zeros);
+    if ((count > max) && (count < grid->size))
+    {
+      max = count;
+      axis_mode 
+    }
+  }
+
+  choice_t *choice = malloc(sizeof(choice_t));
+  choice->row = min_row;
+  choice->column = min_col;
+  choice->color = colors_random(grid->cells[min_row][min_col]);
+
+  return choice;
+}
+*/

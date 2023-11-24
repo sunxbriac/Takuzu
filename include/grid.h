@@ -24,6 +24,8 @@ typedef struct
   uint64_t zeros;
 } binline;
 
+typedef uint64_t binline[2];
+
 typedef struct
 {
   int size;
@@ -36,6 +38,14 @@ typedef enum
   LINE,
   COLUMN
 } axis_mode;
+
+typedef struct 
+{
+  size_t row;
+  size_t column;
+  char choice;
+} choice_t;
+
 
 /* checks if a character is a significant one */
 bool check_char(const t_grid *g, const char c);
@@ -92,10 +102,19 @@ bool consecutive_cells_heuristic(t_grid *grid);
    and fills the other cells with the opposite in that row/column */
 bool half_line_filled(t_grid *grid, int i, int halfsize);
 
-/* calls half_line_filled on every column/grid */
+/* applies half_line_filled on every column/grid */
 bool half_line_heuristic(t_grid *grid);
+
+/* check if a cell is surrounded by 2 of the same char and fills it to the opposite one */
+bool inbetween_cells_heuristic(t_grid *grid);
 
 /* calls all our heuristics on the grid and stops when no changes are made anymore */
 bool grid_heuristics(t_grid *grid);
+
+/* applies choice to the grid */
+void grid_choice_apply(t_grid *grid, const choice_t *choice);
+
+/* prints the choice we make in FILE */
+void grid_choice_print(const choice_t *choice, FILE *fd);
 
 #endif /* GRID_H */
