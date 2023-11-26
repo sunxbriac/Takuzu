@@ -2,6 +2,7 @@
 #define GRID_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,14 +15,12 @@
 #define ERROR_CHAR 'X'
 #define ONE '1'
 #define ZERO '0'
+#define ONE '1'
+#define ZERO '0'
 #define DEFAULT_SIZE 8
 #define MAX_GRID_SIZE 64
 
-typedef struct
-{
-  uint64_t ones;
-  uint64_t zeros;
-} binline;
+typedef uint64_t binline[2];
 
 typedef struct
 {
@@ -32,9 +31,16 @@ typedef struct
 
 typedef enum
 {
-  ROW,
-  COL
+  LINE,
+  COLUMN
 } axis_mode;
+
+typedef struct 
+{
+  size_t row;
+  size_t column;
+  char choice;
+} choice_t;
 
 
 /* checks if a character is a significant one */
@@ -61,9 +67,6 @@ void set_cell(int i, int j, t_grid *grid, char v);
 /* returns the value of the cel (i,j) in the grid */
 char get_cell(int i, int j, t_grid *grid);
 
-/* creates a tuple of 2 binary naturals that we'll use in another function */
-binline line_to_bin(t_grid *grid, int k, axis_mode mode);
-
 /* counts the bits to 1 in a binary int */
 int gridline_count(uint64_t gridline);
 
@@ -83,5 +86,35 @@ bool is_full(t_grid *grid);
 
 /* checks if a grid is full and consistent */
 bool is_valid(t_grid *grid);
+
+/* check if there are 2 zeros or 2 ones next to each other and fills 
+   the next cell to opposite if empty */
+bool consecutive_cells_heuristic(t_grid *grid);
+
+/* checks if there are already half of zeros or one in a row/column 
+   and fills the other cells with the opposite in that row/column */
+bool half_line_filled(t_grid *grid, int i, int halfsize);
+
+/* applies half_line_filled on every column/grid */
+bool half_line_heuristic(t_grid *grid);
+
+/* check if a cell is surrounded by 2 of the same char and fills it to the opposite one */
+bool inbetween_cells_heuristic(t_grid *grid);
+
+/* calls all our heuristics on the grid and stops when no changes are made anymore */
+bool grid_heuristics(t_grid *grid);
+
+/* applies choice to the grid */
+void grid_choice_apply(t_grid *grid, const choice_t choice);
+
+/* remove choice from the grid and apply the other character */
+void grid_choice_apply_opposite(t_grid *grid, const choice_t choice);
+
+/* prints the choice we make in FILE */
+void grid_choice_print(const choice_t choice, FILE *fd);
+
+/* chose the best choice to make and returns an object with position in the grid and 
+    character of the choice */
+choice_t grid_choice(t_grid *grid);
 
 #endif /* GRID_H */

@@ -2,6 +2,8 @@ EXE = takuzu
 
 all : build
 
+rebuild : clean build
+
 build : 
 	@cd src && $(MAKE)
 	@cp src/$(EXE) $(EXE)

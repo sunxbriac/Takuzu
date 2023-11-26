@@ -1,5 +1,17 @@
 #include "takuzu.h"
 
+typedef enum
+{
+  MODE_FIRST,
+  MODE_ALL
+} mode_t;
+
+static bool seeded = false;
+static bool verbose = false;
+static size_t solutions;
+static bool solved;
+static size_t choices;
+static size_t backtracks;
 
 static bool fill_grid(t_grid *grid, int size, int *current_ptr,
                       FILE *parsing_file, int *row, int *col)
@@ -43,7 +55,7 @@ static bool fill_grid(t_grid *grid, int size, int *current_ptr,
         warnx("error: grid has too many lines");
         return false;
       }
-      set_cell(*row,*col,grid,*current_ptr);
+      set_cell(*row, *col, grid, *current_ptr);
       (*col)++;
     }
 
@@ -122,7 +134,7 @@ static t_grid *file_parser(char *filename)
 
   int row = 0;
   int col;
-  
+
   // initializing first row of grid
   for (col = 0; col < size; col++)
   {
@@ -131,9 +143,9 @@ static t_grid *file_parser(char *filename)
       warnx("error: wrong character '%c' at line 1!", line[col]);
       goto error;
     }
-    set_cell(row,col,grid,line[col]);
+    set_cell(row, col, grid, line[col]);
   }
-  
+
   row++;
   col = 0;
   current_char = fgetc(parsing_file);
@@ -175,7 +187,58 @@ error:
   return NULL;
 }
 
-static bool verbose = false;
+static t_grid *grid_generate(int size)
+{
+  t_grid g;
+  t_grid *grid = &g;
+
+  while (true)
+  {
+
+    grid_allocate(&g, size);
+
+    int square_size = size * size;
+    int index_tab[square_size];
+    for (int i = 0; i < square_size; i++)
+      index_tab[i] = i;
+
+    int j, temp;
+    for (int i = 0; i < square_size; i++)
+    {
+      j = i + rand() % (square_size - i);
+      temp = index_tab[i];
+      index_tab[i] = index_tab[j];
+      index_tab[j] = temp;
+    }
+
+    int i;
+    for (i = 0; i < (int)(N * square_size); i++)
+    {
+      set_cell(index_tab[i] / size, index_tab[i] % size, grid, (i % 2) + '0');
+      if (!is_consistent(grid))
+      {
+        set_cell(index_tab[i] / size, index_tab[i] % size, grid, EMPTY_CELL);
+        set_cell(index_tab[i] / size, index_tab[i] % size, grid, ((i + 1) % 2) + '0');
+      }
+      if (!is_consistent(grid))
+      {
+        break;
+      }
+    }
+
+    if (i >= (int)(N * square_size))
+    {
+      break;
+    }
+
+    else
+    {
+      grid_free(grid);
+    }
+  }
+
+  return grid;
+}
 
 static void print_help()
 {
@@ -189,6 +252,66 @@ static void print_help()
          "-v, --verbose           verbose output\n"
          "-h, --help              display this help and exit\n");
 }
+
+t_grid *grid_solver(t_grid *grid, FILE *fd, const mode_t mode)
+{
+  if (grid == NULL)
+  {
+    backtracks++;
+    return NULL;
+  }
+
+  if(!grid_heuristics(grid))
+  {
+    grid_free(grid);
+    return NULL;
+  }
+
+  if(is_full(grid))
+  {
+    fprintf(fd, "\n# solution ");
+
+    if(mode)
+    {
+      solutions++;
+      fprintf(fd, "#%ld:", solutions);
+    }
+
+    fprintf(fd, "\n");
+    solved = true;
+    return grid;
+  }
+
+  choice_t choice = grid_choice(grid);
+  choices++;
+  t_grid c;
+  t_grid *copy = &c;
+  grid_copy(grid, copy);
+
+/* Version avec memory leak.
+  grid_choice_apply(copy, choice);
+  copy = grid_solver(copy, fd, mode);
+  if (copy)
+  {
+    grid_print(grid, fd);
+    grid_free(grid);
+    grid_print(copy, fd);
+    return copy;
+  }
+  */
+
+  grid_choice_apply(grid,choice);
+  grid = grid_solver(grid, fd, mode);
+  if(grid)
+  {
+    grid_print(copy,fd);
+    grid_free(copy);
+    grid_print(grid, fd);
+    return grid;
+  }
+  else return NULL;
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -204,7 +327,7 @@ int main(int argc, char *argv[])
 
   bool unique = false;
   bool generator = false; // true = generator , false = solver
-  bool mode_all = false;
+  mode_t mode = MODE_FIRST;
   FILE *file = stdout;
   char *output_file = NULL;
   int size = DEFAULT_SIZE;
@@ -221,11 +344,11 @@ int main(int argc, char *argv[])
               "it!");
         generator = false;
       }
-      mode_all = true;
+      mode = MODE_ALL;
       break;
 
     case 'g':
-      if (mode_all || unique)
+      if (mode || unique)
         warnx("warning: option 'all' conflicts with generator mode, disabling "
               "it!");
       generator = true;
@@ -305,7 +428,7 @@ int main(int argc, char *argv[])
     {
       t_grid *grid = file_parser(argv[i]);
       if (grid == NULL)
-          errx(EXIT_FAILURE, "error: error with file %s", argv[i]);
+        errx(EXIT_FAILURE, "error: error with file %s", argv[i]);
 
       fprintf(file, "# input grid : \n");
       grid_print(grid, file);
@@ -313,10 +436,10 @@ int main(int argc, char *argv[])
       printf("no lines are identical : %d\n", no_identical_lines(grid));
       printf("there aren't three in a row : %d\n", no_three_in_a_row(grid));
       printf("grid is consistent : %d\n", is_consistent(grid));
-      
-      printf("grid is full: %d\n", is_full(grid));
-      printf("grid is valid : %d\n", is_valid(grid));
 
+      printf("grid is full: %d\n", is_full(grid));
+      printf("grid is valid : %d\n\n", is_valid(grid));
+      grid = grid_solver(grid, file, MODE_FIRST);
       grid_free(grid);
     }
   }
@@ -324,14 +447,17 @@ int main(int argc, char *argv[])
 
   if (generator)
   {
-    t_grid grid;
-    grid_allocate(&grid, size);
+    if (!seeded)
+    {
+      srand(time(NULL));
+      seeded = true;
+    }
 
-    grid_print(&grid, file);
-    grid_free(&grid);
+    t_grid *grid = grid_generate(size);
+    grid_print(grid, file);
+    grid_free(grid);
   }
 
   if (file != stdout)
     fclose(file);
-    
 }
