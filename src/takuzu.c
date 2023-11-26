@@ -1,7 +1,17 @@
 #include "takuzu.h"
 
+typedef enum
+{
+  MODE_FIRST,
+  MODE_ALL
+} mode_t;
+
 static bool seeded = false;
 static bool verbose = false;
+static size_t solutions;
+static bool solved;
+static size_t choices;
+static size_t backtracks;
 
 static bool fill_grid(t_grid *grid, int size, int *current_ptr,
                       FILE *parsing_file, int *row, int *col)
@@ -211,14 +221,20 @@ static t_grid *grid_generate(int size)
         set_cell(index_tab[i] / size, index_tab[i] % size, grid, ((i + 1) % 2) + '0');
       }
       if (!is_consistent(grid))
-      { break; }
+      {
+        break;
+      }
     }
 
     if (i >= (int)(N * square_size))
-    { break; }
+    {
+      break;
+    }
 
     else
-    { grid_free(grid); }
+    {
+      grid_free(grid);
+    }
   }
 
   return grid;
@@ -237,6 +253,66 @@ static void print_help()
          "-h, --help              display this help and exit\n");
 }
 
+t_grid *grid_solver(t_grid *grid, FILE *fd, const mode_t mode)
+{
+  if (grid == NULL)
+  {
+    backtracks++;
+    return NULL;
+  }
+
+  if(!grid_heuristics(grid))
+  {
+    grid_free(grid);
+    return NULL;
+  }
+
+  if(is_full(grid))
+  {
+    fprintf(fd, "\n# solution ");
+
+    if(mode)
+    {
+      solutions++;
+      fprintf(fd, "#%ld:", solutions);
+    }
+
+    fprintf(fd, "\n");
+    solved = true;
+    return grid;
+  }
+
+  choice_t choice = grid_choice(grid);
+  choices++;
+  t_grid c;
+  t_grid *copy = &c;
+  grid_copy(grid, copy);
+
+/* Version avec memory leak.
+  grid_choice_apply(copy, choice);
+  copy = grid_solver(copy, fd, mode);
+  if (copy)
+  {
+    grid_print(grid, fd);
+    grid_free(grid);
+    grid_print(copy, fd);
+    return copy;
+  }
+  */
+
+  grid_choice_apply(grid,choice);
+  grid = grid_solver(grid, fd, mode);
+  if(grid)
+  {
+    grid_print(copy,fd);
+    grid_free(copy);
+    grid_print(grid, fd);
+    return grid;
+  }
+  else return NULL;
+}
+
+
 int main(int argc, char *argv[])
 {
   const struct option long_opts[] =
@@ -251,7 +327,7 @@ int main(int argc, char *argv[])
 
   bool unique = false;
   bool generator = false; // true = generator , false = solver
-  bool mode_all = false;
+  mode_t mode = MODE_FIRST;
   FILE *file = stdout;
   char *output_file = NULL;
   int size = DEFAULT_SIZE;
@@ -268,11 +344,11 @@ int main(int argc, char *argv[])
               "it!");
         generator = false;
       }
-      mode_all = true;
+      mode = MODE_ALL;
       break;
 
     case 'g':
-      if (mode_all || unique)
+      if (mode || unique)
         warnx("warning: option 'all' conflicts with generator mode, disabling "
               "it!");
       generator = true;
@@ -363,13 +439,10 @@ int main(int argc, char *argv[])
 
       printf("grid is full: %d\n", is_full(grid));
       printf("grid is valid : %d\n\n", is_valid(grid));
-
-      grid_heuristics(grid);
-      grid_print(grid, file);
+      grid = grid_solver(grid, file, MODE_FIRST);
       grid_free(grid);
     }
   }
-  
 
   if (generator)
   {

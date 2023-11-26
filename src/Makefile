@@ -1,4 +1,4 @@
-CFLAGS = -std=c11 -Wall -Wextra -pedantic -O2
+CFLAGS = -std=c11 -Wall -Wextra -pedantic -O2 -ggdb3
 CPPFLAGS = -I../include -DEBUG
 LDFLAGS = 
 EXE = takuzu

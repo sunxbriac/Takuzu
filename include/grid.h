@@ -18,12 +18,6 @@
 #define DEFAULT_SIZE 8
 #define MAX_GRID_SIZE 64
 
-typedef struct
-{
-  uint64_t ones;
-  uint64_t zeros;
-} binline;
-
 typedef uint64_t binline[2];
 
 typedef struct
@@ -71,9 +65,6 @@ void set_cell(int i, int j, t_grid *grid, char v);
 /* returns the value of the cel (i,j) in the grid */
 char get_cell(int i, int j, t_grid *grid);
 
-/* creates a tuple of 2 binary naturals that we'll use in another function */
-binline line_to_bin(t_grid *grid, int k, axis_mode mode);
-
 /* counts the bits to 1 in a binary int */
 int gridline_count(uint64_t gridline);
 
@@ -112,9 +103,16 @@ bool inbetween_cells_heuristic(t_grid *grid);
 bool grid_heuristics(t_grid *grid);
 
 /* applies choice to the grid */
-void grid_choice_apply(t_grid *grid, const choice_t *choice);
+void grid_choice_apply(t_grid *grid, const choice_t choice);
+
+/* remove choice from the grid and apply the other character */
+void grid_choice_apply_opposite(t_grid *grid, const choice_t choice);
 
 /* prints the choice we make in FILE */
-void grid_choice_print(const choice_t *choice, FILE *fd);
+void grid_choice_print(const choice_t choice, FILE *fd);
+
+/* chose the best choice to make and returns an object with position in the grid and 
+    character of the choice */
+choice_t grid_choice(t_grid *grid);
 
 #endif /* GRID_H */

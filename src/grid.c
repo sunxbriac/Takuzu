@@ -5,20 +5,18 @@
 // ------------------------ MACROS ------------------------ //
 #define singleton(i) ((uint64_t)1 << (i))
 
-#define too_many(c, axis) (gridline_count(axis[k].c) > grid->size / 2)
-#define line_k_is_full(axis) ((axis[k].ones ^ axis[k].zeros) == full_line)
-#define identical(axis, k, l) (((axis[k].ones ^ axis[l].ones) == 0) && ((axis[k].zeros ^ axis[l].zeros) == 0))
+#define too_many(c, axis) (gridline_count(axis[k][c]) > grid->size / 2)
+#define line_k_is_full(axis) ((axis[k][1] ^ axis[k][0]) == full_line)
+#define identical(axis, k, l) (((axis[k][1] ^ axis[l][1]) == 0) && ((axis[k][0] ^ axis[l][0]) == 0))
 
-#define three_in_a_row_on_a_line(c) ((grid->lines[i].c & (grid->lines[i].c >> 1) & (grid->lines[i].c >> 2)) != 0)
-#define three_in_a_row_on_a_column(c) ((grid->columns[i].c & (grid->columns[i].c >> 1) & (grid->columns[i].c >> 2)) != 0)
+#define three_in_a_row_on_a_line(c) ((grid->lines[i][c] & (grid->lines[i][c] >> 1) & (grid->lines[i][c] >> 2)) != 0)
+#define three_in_a_row_on_a_column(c) ((grid->columns[i][c] & (grid->columns[i][c] >> 1) & (grid->columns[i][c] >> 2)) != 0)
 
 #define gridaxis(axis_os, i) ((*(binline **)((char *)grid + axis_os))[i])
 // returns grid->axis[i], axis being lines or columns
 #define i_axis_type(type_os, axis_os, i) (*(uint64_t *)((char *)&(gridaxis(axis_os, i)) + type_os))
 // returns grid->axis[i].type, type being ones or zeros
-#define set_temp_binary_shift(shift) (temp_binary = i_axis_type(toffset, aoffset, i) & (i_axis_type(toffset, aoffset, i) >> shift))
-// temp_binary will have ones where there are 2 identical characters in a row
-#define is_empty(i, j) (((grid->lines[i].ones & singleton(j)) == 0) & ((grid->lines[i].zeros & singleton(j)) == 0))
+#define is_empty(i, j) (((grid->lines[i][1] & singleton(j)) == 0) & ((grid->lines[i][0] & singleton(j)) == 0))
 
 // offset corresponds to the offset value in memory between the type and its members
 #define opp_aoffset(axis_offset) ((axis_offset * 2) % (offset_columns + offset_lines))
@@ -27,8 +25,6 @@
 // -------------------- GLOBAL VARS ----------------------- //
 size_t offset_lines = offsetof(t_grid, lines);
 size_t offset_columns = offsetof(t_grid, columns);
-size_t offset_ones = offsetof(binline, ones);
-size_t offset_zeros = offsetof(binline, zeros);
 
 // -------------------------------------------------------- //
 
@@ -55,37 +51,33 @@ void grid_allocate(t_grid *grid, int size)
   if (grid == NULL)
     errx(EXIT_FAILURE, "error : grid_allocate grid");
 
-  binline *lines = NULL;
-  lines = malloc(size * sizeof(binline));
-  if (lines == NULL)
-    errx(EXIT_FAILURE, "error : grid lines malloc");
-
-  binline *columns = NULL;
-  columns = malloc(size * sizeof(binline));
-  if (columns == NULL)
-  {
-    free(lines);
-    errx(EXIT_FAILURE, "error : grid lines malloc");
-  }
-
-  for (int i = 0; i < size; i++)
-  {
-    lines[i] = (binline){0, 0};
-    columns[i] = (binline){0, 0};
-  }
-
   grid->size = size;
-  grid->lines = lines;
-  grid->columns = columns;
+
+  grid->lines = calloc(size, sizeof(binline));
+  if (grid->lines == NULL)
+  {
+    errx(EXIT_FAILURE, "error lines alloc\n");
+  }
+
+  grid->columns = calloc(size, sizeof(binline));
+  if (grid->columns == NULL)
+  {
+    free(grid->lines); 
+    errx(EXIT_FAILURE, "error columns alloc\n");
+  }
 }
 
 void grid_free(t_grid *grid)
 {
   if (grid == NULL)
+  {
+    printf("grille nulle ? \n");
     return;
+  }
 
   free(grid->lines);
   free(grid->columns);
+  grid->size = 0;
 }
 
 void grid_print(t_grid *grid, FILE *fd)
@@ -94,9 +86,9 @@ void grid_print(t_grid *grid, FILE *fd)
   {
     for (int j = 0; j < grid->size; j++)
     {
-      if (((uint64_t)1 & (grid->lines[i].ones >> j)) == 1)
+      if (((uint64_t)1 & (grid->lines[i][1] >> j)) == 1)
         fprintf(fd, "1 ");
-      else if (((uint64_t)1 & (grid->lines[i].zeros >> j)) == 1)
+      else if (((uint64_t)1 & (grid->lines[i][0] >> j)) == 1)
         fprintf(fd, "0 ");
       else
         fprintf(fd, "_ ");
@@ -109,24 +101,34 @@ void grid_print(t_grid *grid, FILE *fd)
 void grid_copy(t_grid *grid, t_grid *grid_copy)
 {
   if (grid == NULL)
+  {
+    printf("grid NULL in gri_copy\n");
     return;
+  }
 
   if (grid_copy == NULL)
+  {
+    printf("grid_copy NULL in grid_copy\n");
     return;
+  }
+
+  grid_allocate(grid_copy,grid->size);
 
   for (int i = 0; i < grid->size; i++)
   {
-    grid_copy->lines[i] = grid->lines[i];
-    grid_copy->columns[i] = grid->columns[i];
+    grid_copy->lines[i][0] = grid->lines[i][0];
+    grid_copy->lines[i][1] = grid->lines[i][1];
+    grid_copy->columns[i][0] = grid->columns[i][0];
+    grid_copy->columns[i][1] = grid->columns[i][1];
   }
 }
 
 static inline void set_empty(int i, int j, t_grid *grid)
 {
-  grid->lines[i].ones &= ~singleton(j);
-  grid->lines[i].zeros &= ~singleton(j);
-  grid->columns[j].ones &= ~singleton(i);
-  grid->columns[j].zeros &= ~singleton(i);
+  grid->lines[i][1] &= ~singleton(j);
+  grid->lines[i][0] &= ~singleton(j);
+  grid->columns[j][1] &= ~singleton(i);
+  grid->columns[j][0] &= ~singleton(i);
 } // line = line & ~singleton allows removing singleton to the line
 
 void set_cell(int i, int j, t_grid *grid, char v)
@@ -137,13 +139,13 @@ void set_cell(int i, int j, t_grid *grid, char v)
   switch (v)
   {
   case ONE:
-    grid->lines[i].ones |= singleton(j);
-    grid->columns[j].ones |= singleton(i);
+    grid->lines[i][1] |= singleton(j);
+    grid->columns[j][1] |= singleton(i);
     break;
 
   case ZERO:
-    grid->lines[i].zeros |= singleton(j);
-    grid->columns[j].zeros |= singleton(i);
+    grid->lines[i][0] |= singleton(j);
+    grid->columns[j][0] |= singleton(i);
     break;
 
   case EMPTY_CELL:
@@ -164,10 +166,10 @@ char get_cell(int i, int j, t_grid *grid)
     return ERROR_CHAR;
   }
 
-  if ((grid->lines[i].ones & singleton(j)) != 0)
+  if ((grid->lines[i][1] & singleton(j)) != 0)
     return ONE;
 
-  if ((grid->lines[i].zeros & singleton(j)) != 0)
+  if ((grid->lines[i][0] & singleton(j)) != 0)
     return ZERO;
 
   return EMPTY_CELL;
@@ -190,13 +192,13 @@ bool no_identical_lines(t_grid *grid)
 
   for (int k = 0; k < grid->size; k++)
   {
-    if (too_many(ones, grid->lines) || too_many(zeros, grid->lines))
+    if (too_many(1, grid->lines) || too_many(0, grid->lines))
     {
       printf("too many 0/1 on line %d\n", k);
       return false;
     }
 
-    if (too_many(ones, grid->columns) || too_many(zeros, grid->columns))
+    if (too_many(1, grid->columns) || too_many(0, grid->columns))
     {
       printf("too many 0/1 on column %d\n", k);
       return false;
@@ -238,16 +240,16 @@ bool no_three_in_a_row(t_grid *grid)
   {
     for (int j = 0; j < (grid->size - 2); j++)
     {
-      if three_in_a_row_on_a_line (ones)
+      if three_in_a_row_on_a_line (1)
         return false;
 
-      if three_in_a_row_on_a_line (zeros)
+      if three_in_a_row_on_a_line (0)
         return false;
 
-      if three_in_a_row_on_a_column (ones)
+      if three_in_a_row_on_a_column (1)
         return false;
 
-      if three_in_a_row_on_a_column (zeros)
+      if three_in_a_row_on_a_column (0)
         return false;
     }
   }
@@ -264,7 +266,7 @@ bool is_full(t_grid *grid)
   uint64_t full_line = (0xFFFFFFFFFFFFFFFF >> (MAX_GRID_SIZE - grid->size));
 
   for (int i = 0; i < grid->size; i++)
-    if ((grid->lines[i].ones ^ grid->lines[i].zeros) != full_line)
+    if ((grid->lines[i][1] ^ grid->lines[i][0]) != full_line)
       return false;
   return true;
 }
@@ -274,37 +276,74 @@ bool is_valid(t_grid *grid)
   return is_full(grid) && is_consistent(grid);
 }
 
-static bool consec_subheuristic(t_grid *grid, int i, bool change,
-                                       size_t aoffset, size_t toffset)
+static bool consec_subheuristic(t_grid *grid, int i, bool change, int type)
 {
   uint64_t temp_binary;
-  set_temp_binary_shift(1);
+
+  // LINES
+  temp_binary = grid->lines[i][type] & (grid->lines[i][type] >> 1);
+
   for (int count = 0; count < grid->size - 1; count++)
   {
     if (((temp_binary >> count) & 1) == 1)
     {
       if (count != 0) // It would mean the first 2 characters of the grid are identical
       {
-        if (!((i_axis_type(opp_toffset(toffset), aoffset, i) >> (count - 1)) & 1)) // If the bit before isn't 0
+        if (!(grid->lines[i][(type + 1) % 2] >> (count - 1) & 1)) // If the bit before isn't 0
         {
           // printf("consec before\n");
           // grid_print(grid, stdout);
           // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
-          i_axis_type(opp_toffset(toffset), aoffset, i) |= singleton(count - 1);
-          i_axis_type(opp_toffset(toffset), opp_aoffset(aoffset), count - 1) |= singleton(i);
+          grid->lines[i][(type + 1) % 2] |= singleton(count - 1);
+          grid->columns[count - 1][(type + 1) % 2] |= singleton(i);
           change = true;
           // grid_print(grid, stdout);
         }
       }
       if (count != (grid->size - 2)) // We don't want to access grid->size index
       {
-        if (!((i_axis_type(opp_toffset(toffset), aoffset, i) >> (count + 2)) & 1))
+        if (!(grid->lines[i][(type + 1) % 2] >> (count + 2) & 1))
         {
           // printf("consec after");
           // grid_print(grid, stdout);
           // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
-          i_axis_type(opp_toffset(toffset), aoffset, i) |= singleton(count + 2);
-          i_axis_type(opp_toffset(toffset), opp_aoffset(aoffset), count + 2) |= singleton(i);
+          grid->lines[i][(type + 1) % 2] |= singleton(count + 2);
+          grid->columns[count + 2][(type + 1) % 2] |= singleton(i);
+          change = true;
+          // grid_print(grid, stdout);
+        }
+      }
+    }
+  }
+
+  // COLUMNS
+  temp_binary = grid->columns[i][type] & (grid->columns[i][type] >> 1);
+  for (int count = 0; count < grid->size - 1; count++)
+  {
+    if (((temp_binary >> count) & 1) == 1)
+    {
+      if (count != 0) // It would mean the first 2 characters of the grid are identical
+      {
+        if (!(grid->columns[i][(type + 1) % 2] >> (count - 1) & 1)) // If the bit before isn't 0
+        {
+          // printf("consec before\n");
+          // grid_print(grid, stdout);
+          // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
+          grid->columns[i][(type + 1) % 2] |= singleton(count - 1);
+          grid->lines[count - 1][(type + 1) % 2] |= singleton(i);
+          change = true;
+          // grid_print(grid, stdout);
+        }
+      }
+      if (count != (grid->size - 2)) // We don't want to access grid->size index
+      {
+        if (!(grid->columns[i][(type + 1) % 2] >> (count + 2) & 1))
+        {
+          // printf("consec after");
+          // grid_print(grid, stdout);
+          // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
+          grid->columns[i][(type + 1) % 2] |= singleton(count + 2);
+          grid->lines[count + 2][(type + 1) % 2] |= singleton(i);
           change = true;
           // grid_print(grid, stdout);
         }
@@ -320,10 +359,8 @@ bool consecutive_cells_heuristic(t_grid *grid)
 
   for (int i = 0; i < grid->size; i++)
   {
-    change = consec_subheuristic(grid, i, change, offset_lines, offset_ones) || change;
-    change = consec_subheuristic(grid, i, change, offset_lines, offset_zeros) || change;
-    change = consec_subheuristic(grid, i, change, offset_columns, offset_ones) || change;
-    change = consec_subheuristic(grid, i, change, offset_columns, offset_zeros) || change;
+    change = consec_subheuristic(grid, i, change, 1) || change;
+    change = consec_subheuristic(grid, i, change, 0) || change;
   }
   return change;
 }
@@ -331,8 +368,8 @@ bool consecutive_cells_heuristic(t_grid *grid)
 bool half_line_filled(t_grid *grid, int i, int halfsize)
 {
   bool change = false;
-  int onescount = gridline_count(grid->lines[i].ones);
-  int zeroscount = gridline_count(grid->lines[i].zeros);
+  int onescount = gridline_count(grid->lines[i][1]);
+  int zeroscount = gridline_count(grid->lines[i][0]);
 
   // LINES
   if (onescount == halfsize)
@@ -347,8 +384,8 @@ bool half_line_filled(t_grid *grid, int i, int halfsize)
           // grid_print(grid, stdout);
           // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
           change = true;
-          grid->lines[i].zeros |= singleton(j);
-          grid->columns[j].zeros |= singleton(i);
+          grid->lines[i][0] |= singleton(j);
+          grid->columns[j][0] |= singleton(i);
           // grid_print(grid, stdout);
         }
       }
@@ -367,16 +404,16 @@ bool half_line_filled(t_grid *grid, int i, int halfsize)
           //  grid_print(grid, stdout);
           //  printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
           change = true;
-          grid->lines[i].ones |= singleton(j);
-          grid->columns[j].ones |= singleton(i);
+          grid->lines[i][1] |= singleton(j);
+          grid->columns[j][1] |= singleton(i);
           // grid_print(grid, stdout);
         }
       }
     }
   }
 
-  onescount = gridline_count(grid->columns[i].ones);
-  zeroscount = gridline_count(grid->columns[i].zeros);
+  onescount = gridline_count(grid->columns[i][1]);
+  zeroscount = gridline_count(grid->columns[i][0]);
 
   // COLUMNS
   if (onescount == halfsize)
@@ -392,8 +429,8 @@ bool half_line_filled(t_grid *grid, int i, int halfsize)
           // grid_print(grid, stdout);
           // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
           change = true;
-          grid->columns[i].zeros |= singleton(j);
-          grid->lines[j].zeros |= singleton(i);
+          grid->columns[i][0] |= singleton(j);
+          grid->lines[j][0] |= singleton(i);
           // grid_print(grid, stdout);
         }
       }
@@ -412,8 +449,8 @@ bool half_line_filled(t_grid *grid, int i, int halfsize)
           // grid_print(grid, stdout);
           // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
           change = true;
-          grid->columns[i].ones |= singleton(j);
-          grid->lines[j].ones |= singleton(i);
+          grid->columns[i][1] |= singleton(j);
+          grid->lines[j][1] |= singleton(i);
           // grid_print(grid, stdout);
         }
       }
@@ -434,22 +471,42 @@ bool half_line_heuristic(t_grid *grid)
   return change;
 }
 
-static bool inbetween_subheuristic(t_grid *grid, int i, bool change,
-                                          size_t aoffset, size_t toffset)
+static bool inbetween_subheuristic(t_grid *grid, int i, bool change, int type)
 {
   uint64_t temp_binary;
-  set_temp_binary_shift(2);
+
+  // LINES
+  temp_binary = grid->lines[i][type] & (grid->lines[i][type] >> 2);
   for (int count = 0; count < grid->size - 2; count++)
   {
     if (((temp_binary >> count) & 1) == 1)
     {
-      if (!((i_axis_type(opp_toffset(toffset), aoffset, i) >> (count + 1)) & 1)) // If the bit before isn't 0
+      if (!(grid->lines[i][(type + 1) % 2] >> (count + 1) & 1)) // If the bit before isn't 0
       {
-        // printf("inbetween before\n");
+        // printf("inbetween before1\n");
         // grid_print(grid, stdout);
         // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
-        i_axis_type(opp_toffset(toffset), aoffset, i) |= singleton(count + 1);
-        i_axis_type(opp_toffset(toffset), opp_aoffset(aoffset), count + 1) |= singleton(i);
+        grid->lines[i][(type + 1) % 2] |= singleton(count + 1);
+        grid->columns[count + 1][(type + 1) % 2] |= singleton(i);
+        change = true;
+        // grid_print(grid, stdout);
+      }
+    }
+  }
+
+  // COLUMNS
+  temp_binary = grid->columns[i][type] & (grid->columns[i][type] >> 2);
+  for (int count = 0; count < grid->size - 2; count++)
+  {
+    if (((temp_binary >> count) & 1) == 1)
+    {
+      if (!(grid->columns[i][(type + 1) % 2] >> (count + 1) & 1)) // If the bit before isn't 0
+      {
+        // printf("inbetween before2\n");
+        // grid_print(grid, stdout);
+        // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> \n");
+        grid->columns[i][(type + 1) % 2] |= singleton(count + 1);
+        grid->lines[count + 1][(type + 1) % 2] |= singleton(i);
         change = true;
         // grid_print(grid, stdout);
       }
@@ -464,10 +521,8 @@ bool inbetween_cells_heuristic(t_grid *grid)
 
   for (int i = 0; i < grid->size; i++)
   {
-    change = inbetween_subheuristic(grid, i, change, offset_lines, offset_ones) || change;
-    change = inbetween_subheuristic(grid, i, change, offset_lines, offset_zeros) || change;
-    change = inbetween_subheuristic(grid, i, change, offset_columns, offset_ones) || change;
-    change = inbetween_subheuristic(grid, i, change, offset_columns, offset_zeros) || change;
+    change = inbetween_subheuristic(grid, i, change, 1) || change;
+    change = inbetween_subheuristic(grid, i, change, 0) || change;
   }
   return change;
 }
@@ -514,22 +569,21 @@ bool grid_heuristics(t_grid *grid)
     }
   }
 
-  return is_valid(grid);
+  return is_consistent(grid);
 }
 
-/*
-void grid_choice_apply(t_grid *grid, const choice_t *choice)
+void grid_choice_apply(t_grid *grid, const choice_t choice)
 {
-  switch (choice->choice)
+  switch (choice.choice)
   {
   case ONE:
-    grid->lines[choice->row].ones |= singleton(choice->column);
-    grid->columns[choice->column].ones |= singleton(choice->row);
+    grid->lines[choice.row][1] |= singleton(choice.column);
+    grid->columns[choice.column][1] |= singleton(choice.row);
     break;
 
   case ZERO:
-    grid->lines[choice->row].zeros |= singleton(choice->column);
-    grid->columns[choice->column].zeros |= singleton(choice->row);
+    grid->lines[choice.row][0] |= singleton(choice.column);
+    grid->columns[choice.column][0] |= singleton(choice.row);
     break;
 
   default:
@@ -538,34 +592,113 @@ void grid_choice_apply(t_grid *grid, const choice_t *choice)
   }
 }
 
-void grid_choice_print(const choice_t *choice, FILE *fd)
+void grid_choice_apply_opposite(t_grid *grid, const choice_t choice)
 {
-  fprintf(fd, "Next choice at grid[%ld][%ld] ", choice->row, choice->column);
-  fprintf(fd, "is '%s'.\n", choice->choice);
+  set_empty(choice.row, choice.column, grid);
+
+  switch (choice.choice)
+  {
+  case ONE:
+    grid->lines[choice.row][0] |= singleton(choice.column);
+    grid->columns[choice.column][0] |= singleton(choice.row);
+    break;
+
+  case ZERO:
+    grid->lines[choice.row][1] |= singleton(choice.column);
+    grid->columns[choice.column][1] |= singleton(choice.row);
+    break;
+
+  default:
+    warnx("error : choice_apply_opposite non-valid character");
+    return;
+  }
+}
+
+void grid_choice_print(const choice_t choice, FILE *fd)
+{
+  fprintf(fd, "Next choice at grid[%ld][%ld] ", choice.row, choice.column);
+  fprintf(fd, "is '%c'.\n", choice.choice);
 }
 
 choice_t grid_choice(t_grid *grid)
 {
-  int max= 0;
-  int max_index;
+  if(is_full(grid))
+  { errx(EXIT_FAILURE, "error: grid_choice but grid is full "); }
+
+  int max = 0;
+  int max_index = 0 ;
   axis_mode axis;
 
+  // Check most filled line
   for (int i = 0; i < grid->size; i++)
   {
-
-    int count = gridline_count(grid->lines[i].ones) + gridline_count(grid->lines[i].zeros);
+    int count = gridline_count(grid->lines[i][1]) + gridline_count(grid->lines[i][0]);
     if ((count > max) && (count < grid->size))
     {
       max = count;
-      axis_mode 
+      axis = LINE;
+      max_index = i;
     }
   }
 
-  choice_t *choice = malloc(sizeof(choice_t));
-  choice->row = min_row;
-  choice->column = min_col;
-  choice->color = colors_random(grid->cells[min_row][min_col]);
+  // Check if there is more filled column
+  for (int i = 0; i < grid->size; i++)
+  {
+    int count = gridline_count(grid->columns[i][1]) + gridline_count(grid->columns[i][0]);
+    if ((count > max) && (count < grid->size))
+    {
+      max = count;
+      axis = COLUMN;
+      max_index = i;
+    }
+  }
+
+  choice_t choice;
+
+  // Choice is gonna be on line or column max_index
+  if(!axis)    // LINE
+  {
+    uint64_t empty_positions = ~(grid->lines[max_index][0] | grid->lines[max_index][1]);
+
+    while((empty_positions & (empty_positions >> 1)) == empty_positions)
+    { empty_positions &= (empty_positions >> 1); }    // Looking for the most isolated bit
+    // we step out of the while loop once one bit is different form empty_pos and empty_pos >> 1
+    // meaning that bit is isolated
+
+    empty_positions = empty_positions ^ (empty_positions & (empty_positions >> 1));
+    // Chose one arbitrarely from this binary (first one) 
+    int i = 0;
+    while(((empty_positions >> i) & 1) != 1)
+    { i++; }
+
+    choice.row = max_index;
+    choice.column = i;
+    choice.choice = (i % 2) + '0';  // pseudo-randomness
+  }
+
+  else // COLUMN
+  {
+    uint64_t empty_positions = ~(grid->columns[max_index][0] | grid->columns[max_index][1]);
+
+    while ((empty_positions & (empty_positions >> 1)) == empty_positions)
+    {
+      empty_positions &= (empty_positions >> 1);
+    } // Looking for the most isolated bit
+    // we step out of the while loop once one bit is different form empty_pos and empty_pos >> 1
+    // meaning that bit is isolated
+
+    empty_positions = empty_positions ^ (empty_positions & (empty_positions >> 1));
+    // Chose one arbitrarely from this binary (first one)
+    int i = 0;
+    while (((empty_positions >> i) & 1) != 1)
+    {
+      i++;
+    }
+
+    choice.column = max_index;
+    choice.column = i;
+    choice.choice = (i % 2) + '0'; // pseudo-randomness
+  }
 
   return choice;
 }
-*/
