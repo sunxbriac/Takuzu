@@ -18,6 +18,7 @@
 #define ONE '1'
 #define ZERO '0'
 #define DEFAULT_SIZE 8
+#define MIN_GRID_SIZE 4
 #define MAX_GRID_SIZE 64
 
 typedef uint64_t binline[2];
@@ -73,16 +74,16 @@ int gridline_count(uint64_t gridline);
 
 /*  checks if there are any lines or columns in the given grid that are
     identical comparing the binary naturals representing the position of
-    the ones and zeros in the lines/columns. */
+    the ones and zeros in the lines/columns. also checks if there are too many 0 or ones  */
 bool no_identical_lines(t_grid *grid);
 
 /* checks if there are any occurence of 3 times the same number in the grid */
 bool no_three_in_a_row(t_grid *grid);
 
-/* checks if a grid is consistent */
+/* Returns true if the grid respects the takuzu rules. */
 bool is_consistent(t_grid *grid);
 
-/* checks if a grid is full */
+/* Returns true if the grid is fully filled */
 bool is_full(t_grid *grid);
 
 /* checks if a grid is full and consistent */

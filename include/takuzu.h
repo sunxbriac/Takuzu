@@ -12,14 +12,15 @@
 #include <grid.h>
 
 #define N 0.3
+#define STDOUT stdout
+#define GEN_MODE 0
+#define SOL_MODE 1
+#define MAX_ASSEMBLE_LOOP 10
 
-
-/*  fills a grid from row and col (will always be 1 and 0 respectively)
-    with characters from the parsing_file  */
-static bool fill_grid(t_grid *grid, int size, int *current_ptr,
-                      FILE *parsing_file, int *row, int *col);
-
-/* cf. takuzu.c  */
-static t_grid *file_parser(char *filename);
+typedef enum
+{
+  MODE_FIRST,
+  MODE_ALL
+} mode_t;
 
 #endif /* TAKUZU_H */
