@@ -12,9 +12,6 @@
 #include <inttypes.h>
 
 #define EMPTY_CELL '_'
-#define ERROR_CHAR 'X'
-#define ONE '1'
-#define ZERO '0'
 #define ONE '1'
 #define ZERO '0'
 #define DEFAULT_SIZE 8
@@ -83,10 +80,10 @@ bool no_three_in_a_row(t_grid *grid);
 /* Returns true if the grid respects the takuzu rules. */
 bool is_consistent(t_grid *grid);
 
-/* Returns true if the grid is fully filled */
+/* Returns true if the grid is fully filled.  */
 bool is_full(t_grid *grid);
 
-/* checks if a grid is full and consistent */
+/* Returns true if a grid is consistent and full. */
 bool is_valid(t_grid *grid);
 
 /* check if there are 2 zeros or 2 ones next to each other and fills 

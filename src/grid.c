@@ -2,7 +2,7 @@
 
 #include <inttypes.h>
 
-// ------------------------ MACROS ------------------------ //
+/* ------------------------ MACROS ------------------------ */
 #define singleton(i) ((uint64_t)1 << (i))
 
 #define too_many(c, axis) (gridline_count(axis[k][c]) > grid->size / 2)
@@ -12,21 +12,10 @@
 #define three_in_a_row_on_a_line(c) ((grid->lines[i][c] & (grid->lines[i][c] >> 1) & (grid->lines[i][c] >> 2)) != 0)
 #define three_in_a_row_on_a_column(c) ((grid->columns[i][c] & (grid->columns[i][c] >> 1) & (grid->columns[i][c] >> 2)) != 0)
 
-#define gridaxis(axis_os, i) ((*(binline **)((char *)grid + axis_os))[i])
-// returns grid->axis[i], axis being lines or columns
-#define i_axis_type(type_os, axis_os, i) (*(uint64_t *)((char *)&(gridaxis(axis_os, i)) + type_os))
-// returns grid->axis[i].type, type being ones or zeros
+/* returns grid->axis[i].type, type being ones or zeros */
 #define is_empty(i, j) (((grid->lines[i][1] & singleton(j)) == 0) & ((grid->lines[i][0] & singleton(j)) == 0))
 
-// offset corresponds to the offset value in memory between the type and its members
-#define opp_aoffset(axis_offset) ((axis_offset * 2) % (offset_columns + offset_lines))
-#define opp_toffset(type_offset) ((type_offset + offset_zeros) % (offset_zeros * 2))
-
-// -------------------- GLOBAL VARS ----------------------- //
-size_t offset_lines = offsetof(t_grid, lines);
-size_t offset_columns = offsetof(t_grid, columns);
-
-// -------------------------------------------------------- //
+/* -------------------------------------------------------- */
 
 bool check_char(const t_grid *g, const char c)
 {
@@ -170,7 +159,7 @@ char get_cell(int i, int j, t_grid *grid)
   if (!grid || i >= grid->size || j >= grid->size || j < 0 || i < 0)
   {
     warnx("error: get_cell wrong indexes / NULL grid");
-    return ERROR_CHAR;
+    return EMPTY_CELL;
   }
 
   if ((grid->lines[i][1] & singleton(j)) != 0)

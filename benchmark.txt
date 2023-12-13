@@ -1,7 +1,0 @@
-4 : generate_2 by far
-8 : generate_1 then 2
-16: generate_2 then 3
-
-16: generate_2 en général plus rapide mais de peu mais parfois super super long donc on utilise gen-1
-
-tester valeur de retour de TOUTES les FONCTIONS

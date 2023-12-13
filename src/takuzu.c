@@ -286,77 +286,8 @@ t_grid *grid_solver(t_grid *grid, FILE *fd, const mode_t mode, bool solver)
   return grid;
 }
 
-/* Generates a grid using backtrack, more info in the report.*/
-static t_grid *grid_generate_1(int size, FILE *fd)
-{
-  int loop = 0;
-
-  while (loop++ < 10000)
-  {
-    t_grid g;
-    t_grid *grid = &g;
-
-    grid_allocate(&g, size);
-
-    int square_size = size * size;
-    int index_tab[square_size];
-
-    for (int i = 0; i < square_size; i++)
-      index_tab[i] = i;
-
-    int j, temp;
-    for (int i = 0; i < square_size; i++)
-    {
-      j = i + rand() % (square_size - i);
-      temp = index_tab[i];
-      index_tab[i] = index_tab[j];
-      index_tab[j] = temp;
-    }
-
-    float fill = 0.25;
-    int random_start = rand() % (square_size - (int)(fill * square_size));
-    int i;
-    for (i = random_start; i < random_start + (int)(fill * square_size); i++)
-    {
-      set_cell(index_tab[i] / size, index_tab[i] % size, grid, (i % 2) + '0');
-      if (!is_consistent(grid))
-      {
-        set_cell(index_tab[i] / size, index_tab[i] % size, grid, EMPTY_CELL);
-        set_cell(index_tab[i] / size, index_tab[i] % size, grid, ((i + 1) % 2) + '0');
-      }
-      if (!is_consistent(grid))
-      {
-        break;
-      }
-    }
-
-    if (i < random_start + (int)(fill * square_size))
-    {
-      grid_free(grid);
-      continue;
-    }
-
-    grid = grid_solver(grid, fd, MODE_FIRST, SOL_MODE);
-    if (!grid)
-    {
-      continue;
-    }
-
-    int nb_to_remove = square_size - (int)(N * square_size);
-    for (int i = 0; i < nb_to_remove; i++)
-    {
-      set_cell(index_tab[i] / size, index_tab[i] % size,
-               grid, EMPTY_CELL);
-    }
-
-    return grid;
-  }
-
-  return NULL;
-}
-
 /* Generates a grid by filling an outer ring and calling solver on it.*/
-static t_grid *grid_generate_2(int size, FILE *fd)
+static t_grid *grid_generate(int size, FILE *fd)
 {
 
   t_grid *grid = malloc(sizeof(t_grid));
@@ -404,16 +335,16 @@ static t_grid *grid_assemble(int size, FILE *fd)
       grid_allocate(grid, size);
       grid->onHeap = 1;
 
-      t_grid *grid1 = grid_generate_2(halfsize, fd);
+      t_grid *grid1 = grid_generate(halfsize, fd);
       if (!grid1)
         return NULL;
-      t_grid *grid2 = grid_generate_2(halfsize, fd);
+      t_grid *grid2 = grid_generate(halfsize, fd);
       if (!grid2)
         return NULL;
-      t_grid *grid3 = grid_generate_2(halfsize, fd);
+      t_grid *grid3 = grid_generate(halfsize, fd);
       if (!grid3)
         return NULL;
-      t_grid *grid4 = grid_generate_2(halfsize, fd);
+      t_grid *grid4 = grid_generate(halfsize, fd);
       if (!grid4)
         return NULL;
 
@@ -584,6 +515,8 @@ int main(int argc, char *argv[])
   FILE *file = stdout;
   char *output_file = NULL;
   int size = DEFAULT_SIZE;
+  clock_t start = 0;
+  clock_t end = 0;
 
   int optc;
 
@@ -695,6 +628,7 @@ int main(int argc, char *argv[])
         backtracks = 0;
 
         grid = grid_solver(grid, file, mode, SOL_MODE);
+
         if (!solved)
         {
           printf("Number of solutions: 0\n");
@@ -728,7 +662,7 @@ int main(int argc, char *argv[])
 
     if (size > MIN_GRID_SIZE)
     {
-    
+      if (verbose)  start = clock();
       while (true)
       {
         t_grid *grid = grid_assemble(size, file);
@@ -738,6 +672,7 @@ int main(int argc, char *argv[])
         {
           if (grid_remove_cells(grid, unique))
           {
+            if (verbose)  end = clock();
             break;
           }
         }
@@ -746,6 +681,11 @@ int main(int argc, char *argv[])
         {
           grid_print(grid, file);
           free_grid_and_ptr(grid);
+          if (verbose)
+          {
+            double time = ((double)(end - start)) / CLOCKS_PER_SEC;
+            fprintf(file, "Elapsed time: %f seconds\n", time);
+          }
           break;
         }
 
@@ -755,9 +695,18 @@ int main(int argc, char *argv[])
     /* size = 4. */
     else
     {
-      t_grid *grid = grid_generate_2(size, file);
+      if (verbose)  start = clock();
+      t_grid *grid = grid_generate(size, file);
+      if (verbose)  end = clock();
+
       grid_print(grid, file);
       free_grid_and_ptr(grid);
+
+      if (verbose)
+      {
+        double time = ((double)(end - start)) / CLOCKS_PER_SEC;
+        fprintf(file, "Elapsed time: %f seconds\n", time);
+      }
     }
   }
 
