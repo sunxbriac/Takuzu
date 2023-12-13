@@ -6,11 +6,19 @@ typedef enum
   MODE_ALL
 } mode_t;
 
+static inline void free_grid_and_ptr(t_grid* grid)
+{
+  grid_free(grid);
+  if(grid->onHeap)
+  {
+    free(grid);
+  }
+}
+
 static bool seeded = false;
 static bool verbose = false;
 static size_t solutions;
 static bool solved;
-static size_t choices;
 static size_t backtracks;
 
 static bool fill_grid(t_grid *grid, int size, int *current_ptr,
@@ -187,14 +195,164 @@ error:
   return NULL;
 }
 
-static t_grid *grid_generate(int size)
+static void print_help()
 {
+  printf("Usage: takuzu [-a|-o FILE|-v|-h] FILE...\n"
+         "       takuzu -g[SIZE] [-u|-o FILE|-v|-h]\n"
+         "Solve or generate takuzu grids of size:(4, 8, 16, 32, 64)\n\n"
+         "-a, --all               search for all possible solutions\n"
+         "-g[N], --generate[N]    generate a grid of size NxN (default:8)\n"
+         "-u, --unique            generate a grid with unique solution\n"
+         "-o FILE, --output FILE  write output to FILE\n"
+         "-v, --verbose           verbose output\n"
+         "-h, --help              display this help and exit\n");
+}
+
+t_grid *grid_solver(t_grid *grid, FILE *fd, const mode_t mode)
+{
+  if (!grid_heuristics(grid))
+  {
+    free_grid_and_ptr(grid);
+    return NULL;
+  }
+
+  if (is_full(grid))
+  {
+    // fprintf(fd, "\n# solution ");
+
+    if (mode)
+    {
+      solutions++;
+      // fprintf(fd, "#%ld:", solutions);
+      fprintf(fd, "%ld\n", solutions);
+    }
+
+    // fprintf(fd, "\n");
+    // grid_print(grid, fd);
+    solved = true;
+    return grid;
+  }
+
+  t_grid *copy = malloc(sizeof(t_grid));
+  if (copy == NULL)
+  {
+    fprintf(fd, "error copy malloc");
+    return NULL;
+  }
+  grid_copy(grid, copy);
+  copy->onHeap = 1;
+
+  choice_t choice = grid_choice(grid);
+  // grid_choice_print(choice, fd);
+  grid_choice_apply(copy, choice);
+  copy = grid_solver(copy, fd, mode);
+
+  if (copy && !mode)
+  {
+    free_grid_and_ptr(grid);
+    return copy;
+  }
+
+  grid_free(copy);
+  free(copy);
+  grid_choice_apply_opposite(grid, choice);
+  grid = grid_solver(grid, fd, mode);
+
+  if (!grid)
+  {
+    backtracks++;
+    return NULL;
+  }
+
+  return grid;
+}
+
+static t_grid *grid_generate_2(int size, FILE *fd)
+{
+  int loop = 0;
+
+  while (loop++ < 10000)
+  {
+    t_grid g;
+    t_grid *grid = &g;
+
+    grid_allocate(&g, size);
+
+    int square_size = size * size;
+    int index_tab[square_size];
+
+    // It doesn't matter if we have duplicates, we just want to
+    // fill the grid a bit then solve it
+
+    for (int i = 0; i < square_size; i++)
+      index_tab[i] = i;
+
+    int j, temp;
+    for (int i = 0; i < square_size; i++)
+    {
+      j = i + rand() % (square_size - i);
+      temp = index_tab[i];
+      index_tab[i] = index_tab[j];
+      index_tab[j] = temp;
+    }
+
+    float fill = 0.25;
+    int random_start = rand() % (square_size - (int)(fill * square_size));
+    int i;
+    for (i = random_start; i < random_start + (int)(fill * square_size); i++)
+    {
+      set_cell(index_tab[i] / size, index_tab[i] % size, grid, (i % 2) + '0');
+      if (!is_consistent(grid))
+      {
+        set_cell(index_tab[i] / size, index_tab[i] % size, grid, EMPTY_CELL);
+        set_cell(index_tab[i] / size, index_tab[i] % size, grid, ((i + 1) % 2) + '0');
+      }
+      if (!is_consistent(grid))
+      {
+        break;
+      }
+    }
+
+    if (i < random_start + (int)(fill * square_size))
+    {
+      grid_free(grid);
+      continue;
+    }
+
+    grid = grid_solver(grid, fd, MODE_FIRST);
+    if (!grid)
+    {
+      continue;
+    }
+
+    int nb_to_remove = square_size - (int)(N * square_size);
+    for (int i = 0; i < nb_to_remove; i++)
+    {
+      set_cell(index_tab[i] / size, index_tab[i] % size,
+               grid, EMPTY_CELL);
+    }
+
+    return grid;
+  }
+
+  return NULL;
+}
+
+static t_grid *grid_generate_3(int size, FILE *fd)
+{
+
+  // TODO
+
+  // si y'a 1 seul 1 ou 0 en plus rien faire
+  // si y'a 2 fois '1' ou '0' en plus, ajouter de chaque coté si pas deja rempli
+  // verif heuristiques avant
+  //
+
   t_grid g;
   t_grid *grid = &g;
 
   while (true)
   {
-
     grid_allocate(&g, size);
 
     int square_size = size * size;
@@ -211,107 +369,184 @@ static t_grid *grid_generate(int size)
       index_tab[j] = temp;
     }
 
-    int i;
-    for (i = 0; i < (int)(N * square_size); i++)
+    for (int i = 0; i < size; i++)
     {
-      set_cell(index_tab[i] / size, index_tab[i] % size, grid, (i % 2) + '0');
-      if (!is_consistent(grid))
+      set_cell(index_tab[i] / size, index_tab[i] % size, grid, (rand() % 2) + '0');
+    }
+
+    if (!grid_heuristics(grid))
+    {
+      grid_free(grid);
+      continue;
+    }
+
+    // fill the rest of the grid via propagation of constraints
+    while (!is_full(grid))
+    {
+
+      bool change = grid_propagate_lines(grid);
+
+      if (!grid_heuristics(grid))
       {
-        set_cell(index_tab[i] / size, index_tab[i] % size, grid, EMPTY_CELL);
-        set_cell(index_tab[i] / size, index_tab[i] % size, grid, ((i + 1) % 2) + '0');
+        break;
       }
-      if (!is_consistent(grid))
+
+      change = change || grid_propagate_columns(grid);
+
+      if (!grid_heuristics(grid))
+      {
+        break;
+      }
+
+      if (!change)
       {
         break;
       }
     }
 
-    if (i >= (int)(N * square_size))
+    if (!is_valid(grid))
+    {
+      grid_free(grid);
+      continue;
+    }
+
+    break;
+  }
+  return grid;
+}
+
+static t_grid *grid_generate_1(int size, FILE *fd)
+{
+
+  t_grid *grid = malloc(sizeof(t_grid));
+  if (!grid)
+  {
+    fprintf(fd, "error generate_1 malloc");
+    return NULL;
+  }
+
+  while (true)
+  {
+    grid_allocate(grid, size);
+    grid->onHeap = 1;
+
+    grid_outer_ring(grid);
+
+    if (is_consistent(grid))
     {
       break;
     }
-
-    else
-    {
-      grid_free(grid);
-    }
+    grid_free(grid);
   }
+
+  if (size > 4)
+    grid = grid_solver(grid, fd, MODE_FIRST);
 
   return grid;
 }
 
-static void print_help()
+static t_grid *grid_assemble(int size, FILE *fd)
 {
-  printf("Usage: takuzu [-a|-o FILE|-v|-h] FILE...\n"
-         "       takuzu -g[SIZE] [-u|-o FILE|-v|-h]\n"
-         "Solve or generate takuzu grids of size:(4, 8, 16, 32, 64)\n\n"
-         "-a, --all               search for all possible solutions\n"
-         "-g[N], --generate[N]    generate a grid of size NxN (default:8)\n"
-         "-u, --unique            generate a grid with unique solution\n"
-         "-o FILE, --output FILE  write output to FILE\n"
-         "-v, --verbose           verbose output\n"
-         "-h, --help              display this help and exit\n");
-}
-
-t_grid *grid_solver(t_grid *grid, FILE *fd, const mode_t mode)
-{
-  if (grid == NULL)
+  if (size == 8)
   {
-    backtracks++;
-    return NULL;
-  }
-
-  if(!grid_heuristics(grid))
-  {
-    grid_free(grid);
-    return NULL;
-  }
-
-  if(is_full(grid))
-  {
-    fprintf(fd, "\n# solution ");
-
-    if(mode)
+    while (true)
     {
-      solutions++;
-      fprintf(fd, "#%ld:", solutions);
+      int halfsize = 4;
+      t_grid *grid = malloc(sizeof(t_grid));
+      if (!grid)
+      {
+        fprintf(fd, "error generate_1 malloc");
+        return NULL;
+      }
+      grid_allocate(grid, size);
+      grid->onHeap = 1;
+
+      t_grid *grid1 = grid_generate_1(halfsize, fd);
+      if (!grid1)
+        return NULL;
+      t_grid *grid2 = grid_generate_1(halfsize, fd);
+      if (!grid2)
+        return NULL;
+      t_grid *grid3 = grid_generate_1(halfsize, fd);
+      if (!grid3)
+        return NULL;
+      t_grid *grid4 = grid_generate_1(halfsize, fd);
+      if (!grid4)
+        return NULL;
+
+      for (int i = 0; i < halfsize; i++)
+      {
+        for (int j = 0; j < halfsize; j++)
+        {
+          set_cell(i, j, grid, get_cell(i, j, grid1));
+          set_cell(i, j + halfsize, grid, get_cell(i, j, grid2));
+          set_cell(i + halfsize, j, grid, get_cell(i, j, grid3));
+          set_cell(i + halfsize, j + halfsize, grid, get_cell(i, j, grid4));
+        }
+      }
+
+      free_grid_and_ptr(grid1);
+      free_grid_and_ptr(grid2);
+      free_grid_and_ptr(grid3);
+      free_grid_and_ptr(grid4);
+
+      if (is_consistent(grid))
+        return grid;
+
+      free_grid_and_ptr(grid);
     }
-
-    fprintf(fd, "\n");
-    solved = true;
-    return grid;
   }
 
-  choice_t choice = grid_choice(grid);
-  choices++;
-  t_grid c;
-  t_grid *copy = &c;
-  grid_copy(grid, copy);
-
-/* Version avec memory leak.
-  grid_choice_apply(copy, choice);
-  copy = grid_solver(copy, fd, mode);
-  if (copy)
+  else
   {
-    grid_print(grid, fd);
-    grid_free(grid);
-    grid_print(copy, fd);
-    return copy;
-  }
-  */
+    while (true)
+    {
+      int halfsize = size / 2;
+      t_grid *grid = malloc(sizeof(t_grid));
+      if (!grid)
+      {
+        fprintf(fd, "error generate_1 malloc");
+        return NULL;
+      }
+      grid_allocate(grid, size);
+      grid->onHeap = 1;
 
-  grid_choice_apply(grid,choice);
-  grid = grid_solver(grid, fd, mode);
-  if(grid)
-  {
-    grid_print(copy,fd);
-    grid_free(copy);
-    grid_print(grid, fd);
-    return grid;
+      t_grid *grid1 = grid_assemble(halfsize, fd);
+      if (!grid1)
+        return NULL;
+      t_grid *grid2 = grid_assemble(halfsize, fd);
+      if (!grid2)
+        return NULL;
+      t_grid *grid3 = grid_assemble(halfsize, fd);
+      if (!grid3)
+        return NULL;
+      t_grid *grid4 = grid_assemble(halfsize, fd);
+      if (!grid4)
+        return NULL;
+
+      for (int i = 0; i < halfsize; i++)
+      {
+        for (int j = 0; j < halfsize; j++)
+        {
+          set_cell(i, j, grid, get_cell(i, j, grid1));
+          set_cell(i, j + halfsize, grid, get_cell(i, j, grid2));
+          set_cell(i + halfsize, j, grid, get_cell(i, j, grid3));
+          set_cell(i + halfsize, j + halfsize, grid, get_cell(i, j, grid4));
+        }
+      }
+
+      free_grid_and_ptr(grid1);
+      free_grid_and_ptr(grid2);
+      free_grid_and_ptr(grid3);
+      free_grid_and_ptr(grid4);
+
+      if (is_consistent(grid))
+        return grid;
+
+      free_grid_and_ptr(grid);
+    }
   }
-  else return NULL;
 }
-
 
 int main(int argc, char *argv[])
 {
@@ -433,17 +668,42 @@ int main(int argc, char *argv[])
       fprintf(file, "# input grid : \n");
       grid_print(grid, file);
 
-      printf("no lines are identical : %d\n", no_identical_lines(grid));
-      printf("there aren't three in a row : %d\n", no_three_in_a_row(grid));
-      printf("grid is consistent : %d\n", is_consistent(grid));
+      if (!is_consistent(grid))
+      {
+        warnx("Grid %s is inconsistent !\n", argv[i]);
+      }
 
-      printf("grid is full: %d\n", is_full(grid));
-      printf("grid is valid : %d\n\n", is_valid(grid));
-      grid = grid_solver(grid, file, MODE_FIRST);
-      grid_free(grid);
+      printf("grid is consistent : %d\n", is_consistent(grid));
+      /*
+else
+{
+  solved = false;
+  solutions = 0;
+  backtracks = 0;
+
+  grid = grid_solver(grid, file, mode);
+  if (!solved)
+  {
+    printf("grid %s has no solution \n", argv[i]);
+  }
+  else
+  {
+    printf("# The grid is solved!\n\n");
+    if (mode)
+      fprintf(file, "# Number of solutions: %ld\n", solutions);
+    if (verbose)
+    {
+      fprintf(file, "# Number of backtracks: %ld\n", backtracks);
     }
   }
-  
+}
+*/
+      if (grid)
+      {
+        free_grid_and_ptr(grid);
+      }
+    }
+  }
 
   if (generator)
   {
@@ -453,9 +713,83 @@ int main(int argc, char *argv[])
       seeded = true;
     }
 
-    t_grid *grid = grid_generate(size);
-    grid_print(grid, file);
-    grid_free(grid);
+    clock_t start, end;
+    double cpu_time_used;
+
+    if (size > 4)
+    {
+      start = clock();
+      t_grid *grid = grid_assemble(size, file);
+      end = clock();
+      cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
+      grid_print(grid, file);
+      printf("grid is consistent ? %d\n", is_consistent(grid));
+      free_grid_and_ptr(grid);
+      printf("Time taken by assemble: %f seconds\n", cpu_time_used);
+    }
+
+    else
+    {
+      t_grid *grid = grid_generate_1(size, file);
+      grid_print(grid, file);
+      free_grid_and_ptr(grid);
+    }
+    // if size > 4 on prend assmble sinon gen 1
+    /*
+        clock_t start, end;
+        double cpu_time_used_1 = 0;
+        double cpu_time_used_2 = 0;
+        double cpu_time_used_3 = 0;
+        for (int i = 0; i < 10; i++)
+        {
+          start = clock();
+          t_grid *grid = grid_generate_1(size, file);
+          end = clock();
+          cpu_time_used_1 += ((double)(end - start)) / CLOCKS_PER_SEC;
+          grid_free(grid);
+          if (grid->onHeap)
+          {
+            free(grid);
+          }
+        }
+        printf("Time taken by generate_1: %f seconds\n", cpu_time_used_1 / 10);
+        for (int i = 0; i < 10; i++)
+        {
+          start = clock();
+          t_grid *grid = grid_generate_2(size, file);
+          end = clock();
+          cpu_time_used_2 += ((double)(end - start)) / CLOCKS_PER_SEC;
+          grid_free(grid);
+          if (grid->onHeap)
+          {
+            free(grid);
+          }
+        }
+        printf("Time taken by generate_2: %f seconds\n", cpu_time_used_2 / 10);
+
+        if (size > 4)
+        {
+          start = clock();
+          t_grid *grid = grid_assemble(size, file);
+          end = clock();
+          cpu_time_used_3 = ((double)(end - start)) / CLOCKS_PER_SEC;
+          grid_print(grid, file);
+          printf("grid is consistent ? %d\n", is_consistent(grid));
+          grid_free(grid);
+          printf("Time taken by assemble: %f seconds\n", cpu_time_used_3);
+        }
+
+            start = clock();
+            grid = grid_generate_3(size, file);
+            end = clock();
+            cpu_time_used_3 = ((double)(end - start)) / CLOCKS_PER_SEC;
+            grid_free(grid);
+            if (grid->onHeap)
+            {
+              free(grid);
+            }
+            printf("Time taken by generate_3: %f seconds\n", cpu_time_used_3);
+            */
   }
 
   if (file != stdout)

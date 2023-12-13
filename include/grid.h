@@ -27,6 +27,7 @@ typedef struct
   int size;
   binline *lines;
   binline *columns;
+  int onHeap;
 } t_grid;
 
 typedef enum
@@ -107,7 +108,7 @@ bool grid_heuristics(t_grid *grid);
 /* applies choice to the grid */
 void grid_choice_apply(t_grid *grid, const choice_t choice);
 
-/* remove choice from the grid and apply the other character */
+/* applies the other choice possible to the same index from choice */
 void grid_choice_apply_opposite(t_grid *grid, const choice_t choice);
 
 /* prints the choice we make in FILE */
@@ -116,5 +117,13 @@ void grid_choice_print(const choice_t choice, FILE *fd);
 /* chose the best choice to make and returns an object with position in the grid and 
     character of the choice */
 choice_t grid_choice(t_grid *grid);
+
+/* azer */
+bool grid_propagate_lines(t_grid *grid);
+
+/* azer */
+bool grid_propagate_columns(t_grid *grid);
+
+void grid_outer_ring(t_grid *grid);
 
 #endif /* GRID_H */
